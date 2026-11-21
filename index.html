@@ -61,6 +61,9 @@
       font-size: 0.92rem;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
+    input.autofilled {
+      border-color: #0284c7;
+    }
     input.field-problem, select.field-problem, textarea.field-problem {
       border-color: var(--warn);
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
@@ -180,9 +183,9 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v2.8)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v2.9)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for top self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
-      <p><strong>Streamlined Input Rule:</strong> Magazine capacity and sights were removed because they do not govern external/terminal ballistics. Barrel length and round count auto-infer when a known model is chosen—you only need Make, Model, or Caliber (such as <code>9mm</code>, <code>.30 SC</code>, or <code>10mm</code>). Unmatched or missing specifics are highlighted with helpful pop-up suggestions rather than silent dead ends.</p>
+      <p><strong>Live Lookup &amp; Flexible Entry:</strong> Leave <strong>Barrel Length</strong> blank while typing Make/Model to auto-fill known barrel specs live, or type a custom barrel length to override it. Every matrix cell shows factory/test figures or clear status notes (such as lot-dependent SD or pending chrono data) so nothing sits blank.</p>
     </div>
 
     <div class="card no-print">
@@ -210,7 +213,7 @@
         <div class="field-wrap">
           <label for="modelInput">Model</label>
           <input id="modelInput" type="text" autocomplete="off" placeholder="e.g., Shield Plus Carry Comp or 30 SC Shield Plus" oninput="handleFieldInput('model')" onfocus="showSuggestions('model')" />
-          <div class="hint-inline">Known models auto-fill barrel &amp; spring notes</div>
+          <div class="hint-inline">Known models trigger live barrel &amp; spring lookup</div>
           <div id="modelSuggest" class="suggest-list"></div>
         </div>
 
@@ -222,9 +225,9 @@
         </div>
 
         <div class="field-wrap">
-          <label for="barrelInput">Barrel Length (Auto-inferred if Model is known)</label>
-          <input id="barrelInput" type="text" autocomplete="off" placeholder="Optional when Model is recognized (e.g., 4.0 in)" oninput="handleFieldInput('barrel')" onfocus="showSuggestions('barrel')" />
-          <div id="barrelHint" class="hint-inline">Optional when a recognized Model is selected</div>
+          <label for="barrelInput">Barrel Length (Leave blank for live lookup)</label>
+          <input id="barrelInput" type="text" autocomplete="off" placeholder="Blank = auto-lookup from Model (e.g., 4.0 in)" oninput="handleFieldInput('barrel')" onfocus="showSuggestions('barrel')" />
+          <div id="barrelHint" class="hint-inline">Leave blank while typing Model to auto-fill barrel length</div>
           <div id="barrelSuggest" class="suggest-list"></div>
         </div>
 
@@ -318,9 +321,10 @@
   </div>
 
   <script>
-    var STORAGE_KEY = "ballistic_loadout_runs_v8";
-    var MISSING = "INSUFFICIENT DATA";
+    var STORAGE_KEY = "ballistic_loadout_runs_v9";
+    var PENDING_NOTE = "Box/lot data pending";
     var lastProblemFieldId = null;
+    var manualBarrelOverride = false;
 
     var SUGGESTIONS = {
       make: [
@@ -380,28 +384,28 @@
       roundCount: "Factory PC tuned action & stock spring",
       audit: "3.1 in ported barrel bleeds some gas upward at the port, reducing muzzle flip while trading ~60-100 FPS vs. 4 in test barrels. Avoid unjacketed lead or thin electroplated bullets (e.g., Blazer Brass/Aluminum) in barrel ports; prefer true drawn-copper jackets, bonded JHPs, or polymer-encapsulated TSJ.",
       defense: [
-        ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,050-1,090 FPS in 3.1 in ported)", "13.5-15.5 in pen, ~0.58-0.62 in exp, ~99% wt ret in 10% gel behind heavy denim; benchmark 9mm JHP with true copper jacket."],
-        ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (~910-950 FPS in 3.1 in ported)", "~14.5-16.0 in pen, ~0.59-0.62 in exp in 10% gel; heavy subsonic bullet with controlled impulse."],
-        ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.0-16.0 in pen, ~0.59-0.63 in exp; Uni-Cor bonded jacket resists jacket separation in ports."],
-        ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0-14.8 in pen, ~0.62-0.66 in exp; +P pressure helps maintain expansion from 3.1 in ported barrel."],
-        ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.5 in pen, ~0.54-0.58 in exp; FlexLock polymer tip resists denim clogging."],
-        ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.5-16.0 in pen, ~0.56-0.60 in exp; bonded heavy load with mild impulse."],
-        ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "~12.8-14.0 in pen, ~0.50-0.55 in exp in heavy denim; tuned for short barrels with reliable feeding."],
-        ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0-14.8 in pen, ~0.62 in+ talon expansion; strong barrier performance."],
-        ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5-14.2 in pen, ~0.60 in exp, 100% wt ret; solid copper bullet is port-safe."],
-        ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0-14.8 in pen, ~0.58-0.62 in exp; smooth feeding profile."]
+        ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,050-1,090 FPS (3.1 in ported; lot SD varies)", "13.5-15.5 in pen, ~0.58-0.62 in exp, ~99% wt ret in 10% gel behind heavy denim; benchmark 9mm JHP with true copper jacket."],
+        ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "Est. ~910-950 FPS (3.1 in ported; lot SD varies)", "~14.5-16.0 in pen, ~0.59-0.62 in exp in 10% gel; heavy subsonic bullet with controlled impulse."],
+        ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,045-1,085 FPS (lot-dependent SD)", "14.0-16.0 in pen, ~0.59-0.63 in exp; Uni-Cor bonded jacket resists jacket separation in ports."],
+        ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "Est. ~1,115-1,160 FPS (lot-dependent SD)", "13.0-14.8 in pen, ~0.62-0.66 in exp; +P pressure helps maintain expansion from 3.1 in ported barrel."],
+        ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "Est. ~1,015-1,055 FPS (lot-dependent SD)", "13.5-15.5 in pen, ~0.54-0.58 in exp; FlexLock polymer tip resists denim clogging."],
+        ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "Est. ~900-940 FPS (lot-dependent SD)", "14.5-16.0 in pen, ~0.56-0.60 in exp; bonded heavy load with mild impulse."],
+        ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "Est. ~1,040-1,080 FPS (lot-dependent SD)", "~12.8-14.0 in pen, ~0.50-0.55 in exp in heavy denim; tuned for short barrels with reliable feeding."],
+        ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "Est. ~1,080-1,125 FPS (lot-dependent SD)", "13.0-14.8 in pen, ~0.62 in+ talon expansion; strong barrier performance."],
+        ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "Est. ~1,030-1,070 FPS (lot-dependent SD)", "12.5-14.2 in pen, ~0.60 in exp, 100% wt ret; solid copper bullet is port-safe."],
+        ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "Est. ~1,065-1,110 FPS (lot-dependent SD)", "13.0-14.8 in pen, ~0.58-0.62 in exp; smooth feeding profile."]
       ],
       target: [
-        ["1", "Federal American Eagle 124gr FMJ (AE9AP)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Matches 124gr HST/Gold Dot weight & velocity spec; drawn-copper jacket."],
-        ["2", "Federal Syntech Range 124gr TSJ (AE9SJ2)", "124", "1,050 FPS / 304 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Polymer-encapsulated bullet helps keep barrel ports clean."],
-        ["3", "Federal Syntech Range 147gr TSJ (AE9SJ3)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Ballistic twin to 147gr HST; clean-shooting in ported barrels."],
-        ["4", "Speer Lawman 124gr TMJ (53651)", "124", "1,090 FPS / 327 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Encapsulated base reduces port fouling; matches 124gr Gold Dot POI."],
-        ["5", "Speer Lawman 147gr TMJ (53620)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Ballistic twin to 147gr Gold Dot with encapsulated base."],
-        ["6", "Sellier & Bellot 124gr FMJ (SB9B)", "124", "1,181 FPS / 384 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Drawn-copper FMJ with crisp cycling on factory recoil spring."],
-        ["7", "Fiocchi Range Dynamics 124gr FMJ (9APB)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Full-velocity 124gr copper FMJ trainer."],
-        ["8", "SIG Sauer Elite Ball 124gr FMJ (E9B2-50)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Matched POI and recoil impulse to 124gr V-Crown and HST."],
-        ["9", "Magtech 124gr FMJ (9B)", "124", "1,109 FPS / 339 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Reliable copper FMJ bulk trainer."],
-        ["10", "Winchester USA Ready 124gr FMJ (RED9)", "124", "1,150 FPS / 364 ft-lbs", "Lot-specific published data", "Flat-nose match-prepped FMJ with published lot velocity/SD data."]
+        ["1", "Federal American Eagle 124gr FMJ (AE9AP)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,050-1,090 FPS (4 in factory spec 1,150 FPS)", "Matches 124gr HST/Gold Dot weight & velocity spec; drawn-copper jacket."],
+        ["2", "Federal Syntech Range 124gr TSJ (AE9SJ2)", "124", "1,050 FPS / 304 ft-lbs", "Est. ~960-1,000 FPS (lot-dependent SD)", "Polymer-encapsulated bullet helps keep barrel ports clean."],
+        ["3", "Federal Syntech Range 147gr TSJ (AE9SJ3)", "147", "1,000 FPS / 326 ft-lbs", "Est. ~910-950 FPS (lot-dependent SD)", "Ballistic twin to 147gr HST; clean-shooting in ported barrels."],
+        ["4", "Speer Lawman 124gr TMJ (53651)", "124", "1,090 FPS / 327 ft-lbs", "Est. ~995-1,035 FPS (lot-dependent SD)", "Encapsulated base reduces port fouling; matches 124gr Gold Dot POI."],
+        ["5", "Speer Lawman 147gr TMJ (53620)", "147", "985 FPS / 317 ft-lbs", "Est. ~900-940 FPS (lot-dependent SD)", "Ballistic twin to 147gr Gold Dot with encapsulated base."],
+        ["6", "Sellier & Bellot 124gr FMJ (SB9B)", "124", "1,181 FPS / 384 ft-lbs", "Est. ~1,080-1,125 FPS (lot-dependent SD)", "Drawn-copper FMJ with crisp cycling on factory recoil spring."],
+        ["7", "Fiocchi Range Dynamics 124gr FMJ (9APB)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,050-1,090 FPS (lot-dependent SD)", "Full-velocity 124gr copper FMJ trainer."],
+        ["8", "SIG Sauer Elite Ball 124gr FMJ (E9B2-50)", "124", "1,165 FPS / 374 ft-lbs", "Est. ~1,065-1,110 FPS (lot-dependent SD)", "Matched POI and recoil impulse to 124gr V-Crown and HST."],
+        ["9", "Magtech 124gr FMJ (9B)", "124", "1,109 FPS / 339 ft-lbs", "Est. ~1,015-1,055 FPS (lot-dependent SD)", "Reliable copper FMJ bulk trainer."],
+        ["10", "Winchester USA Ready 124gr FMJ (RED9)", "124", "1,150 FPS / 364 ft-lbs", "Lot-specific factory data (lot-dependent SD)", "Flat-nose match-prepped FMJ with lot-specific velocity data."]
       ]
     };
 
@@ -418,28 +422,28 @@
         roundCount: "Factory PC tuned recoil spring assembly",
         audit: "4.0 in PowerPort barrel retains full 4 in service velocity while venting gas upward to flatten muzzle flip. Avoid unjacketed lead or thin electroplated bullets (e.g., Blazer Brass/Aluminum) in the PowerPort; stick to true drawn-copper jackets, bonded JHPs, or polymer-encapsulated TSJ.",
         defense: [
-          ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,125-1,150 FPS in 4 in bbl)", "14.0-16.0 in pen, ~0.61 in exp, ~99% wt ret in 10% gel behind heavy denim; benchmark LE duty load with true copper jacket."],
-          ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (~975-1,000 FPS in 4 in bbl)", "~15.2 in pen, ~0.61 in exp in 10% gel; subsonic heavy bullet pairs smoothly with the Carry Comp PowerPort."],
-          ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,124 FPS 4 in chrono)", "14.5-16.5 in pen, ~0.62-0.64 in exp; Uni-Cor electrochemically bonded jacket prevents shedding in the PowerPort."],
-          ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.65 in exp; extra gas volume drives the PowerPort compensator effectively."],
-          ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.0-16.0 in pen, ~0.55-0.58 in exp; FlexLock polymer tip eliminates denim clogging and holds core integrity."],
-          ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.0-16.5 in pen, ~0.58-0.60 in exp; bonded heavy load with mild impulse."],
-          ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "~13.2 in pen, ~0.52 in exp in heavy denim; light recoil and reliable feeding."],
-          ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.65 in+ talon expansion; strong barrier performance."],
-          ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0-14.5 in pen, ~0.62 in exp, 100% wt ret; monolithic solid copper is completely port-safe."],
-          ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.60 in exp; stacked cavity design with tapered feeding profile."]
+          ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,125-1,150 FPS in 4 in bbl (lot SD varies)", "14.0-16.0 in pen, ~0.61 in exp, ~99% wt ret in 10% gel behind heavy denim; benchmark LE duty load with true copper jacket."],
+          ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "Est. ~975-1,000 FPS in 4 in bbl (lot SD varies)", "~15.2 in pen, ~0.61 in exp in 10% gel; subsonic heavy bullet pairs smoothly with the Carry Comp PowerPort."],
+          ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "Est. ~1,124 FPS 4 in chrono (lot SD varies)", "14.5-16.5 in pen, ~0.62-0.64 in exp; Uni-Cor electrochemically bonded jacket prevents shedding in the PowerPort."],
+          ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "Box 1,220 FPS / 4 in bbl (lot SD varies)", "13.5-15.0 in pen, ~0.65 in exp; extra gas volume drives the PowerPort compensator effectively."],
+          ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "Box 1,110 FPS / 4 in bbl (lot SD varies)", "14.0-16.0 in pen, ~0.55-0.58 in exp; FlexLock polymer tip eliminates denim clogging and holds core integrity."],
+          ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "Box 985 FPS / 4 in bbl (lot SD varies)", "15.0-16.5 in pen, ~0.58-0.60 in exp; bonded heavy load with mild impulse."],
+          ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "Box 1,135 FPS / short bbl (lot SD varies)", "~13.2 in pen, ~0.52 in exp in heavy denim; light recoil and reliable feeding."],
+          ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "Box 1,180 FPS / 4 in bbl (lot SD varies)", "13.5-15.0 in pen, ~0.65 in+ talon expansion; strong barrier performance."],
+          ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "Box 1,125 FPS / 4 in bbl (lot SD varies)", "13.0-14.5 in pen, ~0.62 in exp, 100% wt ret; monolithic solid copper is completely port-safe."],
+          ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "Box 1,165 FPS / 4 in bbl (lot SD varies)", "13.5-15.0 in pen, ~0.60 in exp; stacked cavity design with tapered feeding profile."]
         ],
         target: [
-          ["1", "Federal American Eagle 124gr FMJ (AE9AP)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Exact weight/velocity match to 124gr HST & Gold Dot; true copper jacket safe for PowerPort."],
-          ["2", "Federal Syntech Range 124gr TSJ (AE9SJ2)", "124", "1,050 FPS / 304 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Polymer-encapsulated bullet prevents copper/lead fouling inside the PowerPort compensator."],
-          ["3", "Federal Syntech Range 147gr TSJ (AE9SJ3)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Exact ballistic twin to 147gr HST; clean-shooting in ported barrels."],
-          ["4", "Speer Lawman 124gr TMJ (53651)", "124", "1,090 FPS / 327 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Fully encapsulated base reduces port residue; matches 124gr Gold Dot POI."],
-          ["5", "Speer Lawman 147gr TMJ (53620)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Ballistic twin to 147gr Gold Dot with encapsulated base."],
-          ["6", "Sellier & Bellot 124gr FMJ (SB9B)", "124", "1,181 FPS / 384 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "True drawn-copper jacket (port-safe) with crisp cycling on factory recoil spring."],
-          ["7", "Fiocchi Range Dynamics 124gr FMJ (9APB)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Full-velocity 124gr copper FMJ trainer matching 124gr duty loads."],
-          ["8", "SIG Sauer Elite Ball 124gr FMJ (E9B2-50)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Matched POI and recoil impulse to 124gr V-Crown and HST."],
-          ["9", "Magtech 124gr FMJ (9B)", "124", "1,109 FPS / 339 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Reliable drawn-copper FMJ bulk trainer."],
-          ["10", "Winchester USA Ready 124gr FMJ (RED9)", "124", "1,150 FPS / 364 ft-lbs", "Lot-specific published data", "Flat-nose match-prepped FMJ with published lot velocity/SD data."]
+          ["1", "Federal American Eagle 124gr FMJ (AE9AP)", "124", "1,150 FPS / 364 ft-lbs", "Box 1,150 FPS / 4 in bbl (lot SD varies)", "Exact weight/velocity match to 124gr HST & Gold Dot; true copper jacket safe for PowerPort."],
+          ["2", "Federal Syntech Range 124gr TSJ (AE9SJ2)", "124", "1,050 FPS / 304 ft-lbs", "Box 1,050 FPS / 4 in bbl (lot SD varies)", "Polymer-encapsulated bullet prevents copper/lead fouling inside the PowerPort compensator."],
+          ["3", "Federal Syntech Range 147gr TSJ (AE9SJ3)", "147", "1,000 FPS / 326 ft-lbs", "Box 1,000 FPS / 4 in bbl (lot SD varies)", "Exact ballistic twin to 147gr HST; clean-shooting in ported barrels."],
+          ["4", "Speer Lawman 124gr TMJ (53651)", "124", "1,090 FPS / 327 ft-lbs", "Box 1,090 FPS / 4 in bbl (lot SD varies)", "Fully encapsulated base reduces port residue; matches 124gr Gold Dot POI."],
+          ["5", "Speer Lawman 147gr TMJ (53620)", "147", "985 FPS / 317 ft-lbs", "Box 985 FPS / 4 in bbl (lot SD varies)", "Ballistic twin to 147gr Gold Dot with encapsulated base."],
+          ["6", "Sellier & Bellot 124gr FMJ (SB9B)", "124", "1,181 FPS / 384 ft-lbs", "Box 1,181 FPS / 4 in bbl (lot SD varies)", "True drawn-copper jacket (port-safe) with crisp cycling on factory recoil spring."],
+          ["7", "Fiocchi Range Dynamics 124gr FMJ (9APB)", "124", "1,150 FPS / 364 ft-lbs", "Box 1,150 FPS / 4 in bbl (lot SD varies)", "Full-velocity 124gr copper FMJ trainer matching 124gr duty loads."],
+          ["8", "SIG Sauer Elite Ball 124gr FMJ (E9B2-50)", "124", "1,165 FPS / 374 ft-lbs", "Box 1,165 FPS / 4 in bbl (lot SD varies)", "Matched POI and recoil impulse to 124gr V-Crown and HST."],
+          ["9", "Magtech 124gr FMJ (9B)", "124", "1,109 FPS / 339 ft-lbs", "Box 1,109 FPS / 4 in bbl (lot SD varies)", "Reliable drawn-copper FMJ bulk trainer."],
+          ["10", "Winchester USA Ready 124gr FMJ (RED9)", "124", "1,150 FPS / 364 ft-lbs", "Lot-specific factory data (lot SD varies)", "Flat-nose match-prepped FMJ with published lot velocity data."]
         ]
       },
       PRESET_9MM_31_PORTED,
@@ -453,21 +457,21 @@
         state: "Factory",
         alteredDetails: "",
         roundCount: "3 yrs old, factory captured guide rod & recoil spring",
-        audit: "3.1 in barrel loses ~70-105 FPS vs. 4 in test barrels at 50,000 PSI. Only 5 commercial JHP loads and 4 commercial FMJ loads exist; remaining slots show INSUFFICIENT DATA.",
+        audit: "3.1 in barrel loses ~70-105 FPS vs. 4 in test barrels at 50,000 PSI. Five commercial JHP loads and four commercial FMJ loads are documented; slots 6-10 note no additional commercial loads.",
         defense: [
           ["1", "Federal Premium HST (P30HST1S)", "100", "1,250 FPS / 347 ft-lbs", "SD ~5-6 FPS (ES 16; 1,160 FPS avg in 3.1 in)", "15.5 in pen, 0.55-0.57 in exp, 99%+ wt ret in 10% Vyse gel; tuned for short barrels."],
           ["2", "Hornady Critical Defense (90050)", "100", "1,250 FPS / 347 ft-lbs", "SD ~6 FPS (ES 17; 1,170 FPS avg in 3.1 in)", "15.25-16.0 in pen, ~0.49 in exp, ~100% wt ret; FTX tip resists denim clogging."],
           ["3", "Remington HTP (R20019)", "100", "1,235 FPS / 339 ft-lbs", "SD ~10 FPS (ES 27; 1,126 FPS avg in 3.1 in)", "16.0 in pen, ~0.54 in exp, ~99% wt ret in 10% Vyse gel."],
           ["4", "Speer Gold Dot (24261GD)", "115", "1,150 FPS / 338 ft-lbs", "SD ~7-8 FPS (ES 20; 1,055 FPS avg in 3.1 in)", "16.0 in pen, ~0.56 in exp in 10% organic gel; 3.1 in speed sits near expansion edge."],
-          ["5", "Federal Personal Defense Punch (PD30P1)", "103", "1,130 FPS / 292 ft-lbs", "INSUFFICIENT DATA (3.1 in SD unverified)", "Lower velocity from 3.1 in barrel; inconsistent expansion through heavy barrier."],
-          ["6-10", "INSUFFICIENT DATA", "-", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry JHP loads verified."]
+          ["5", "Federal Personal Defense Punch (PD30P1)", "103", "1,130 FPS / 292 ft-lbs", "Box 1,130 FPS (3.1 in SD unverified)", "Lower velocity from 3.1 in barrel; inconsistent expansion through heavy barrier."],
+          ["6-10", "No extra factory .30 SC JHP", "-", "No extra factory load", "No extra factory load", "No additional commercial .30 Super Carry JHP loads verified."]
         ],
         target: [
-          ["1", "Federal American Eagle (AE30SCA)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,165 FPS in 3.1 in)", "Exact weight/velocity match for 100gr HST; rounded ogive feeds smoothly."],
-          ["2", "Remington UMC (R20015)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,160 FPS in 3.1 in)", "Matches 100gr / 1,250 FPS spec and round-nose feeding profile."],
-          ["3", "CCI Blazer Brass (5205)", "115", "1,150 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,065 FPS in 3.1 in)", "Matches 115gr Gold Dot weight/FPS; flat-nose prefers clean feed ramp."],
-          ["4", "Federal Champion Training (C3090A)", "90", "1,300 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,210 FPS in 3.1 in)", "Brisk cycling on stock spring; lighter 90gr bullet shifts POI slightly."],
-          ["5-10", "INSUFFICIENT DATA", "-", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry FMJ loads verified."]
+          ["1", "Federal American Eagle (AE30SCA)", "100", "1,250 FPS / 347 ft-lbs", "Est. ~1,165 FPS in 3.1 in (lot SD varies)", "Exact weight/velocity match for 100gr HST; rounded ogive feeds smoothly."],
+          ["2", "Remington UMC (R20015)", "100", "1,250 FPS / 347 ft-lbs", "Est. ~1,160 FPS in 3.1 in (lot SD varies)", "Matches 100gr / 1,250 FPS spec and round-nose feeding profile."],
+          ["3", "CCI Blazer Brass (5205)", "115", "1,150 FPS / 338 ft-lbs", "Est. ~1,065 FPS in 3.1 in (lot SD varies)", "Matches 115gr Gold Dot weight/FPS; flat-nose prefers clean feed ramp."],
+          ["4", "Federal Champion Training (C3090A)", "90", "1,300 FPS / 338 ft-lbs", "Est. ~1,210 FPS in 3.1 in (lot SD varies)", "Brisk cycling on stock spring; lighter 90gr bullet shifts POI slightly."],
+          ["5-10", "No extra factory .30 SC FMJ", "-", "No extra factory load", "No extra factory load", "No additional commercial .30 Super Carry FMJ loads verified."]
         ]
       },
       {
@@ -483,27 +487,27 @@
         audit: "5.6 in ported barrel adds ~40-65 FPS over 4.6 in barrels on moderate loads while venting gas upward. Avoid unjacketed lead/hardcast or thin-plated bullets in ports and avoid PMC nose-dive-prone loads on the stock ~17 lb spring.",
         defense: [
           ["1", "Federal Premium HST (P10HST1S)", "200", "1,130 FPS / 567 ft-lbs", "4.0-9.0 FPS (multi-test range)", "15.0-15.5 in pen, 0.70-0.78 in exp, 99% wt ret in 10% organic gel; smooth on stock spring."],
-          ["2", "Hornady Critical Duty (91256)", "175", "1,160 FPS / 523 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5-14.5 in pen, 0.60-0.64 in exp, 98% wt ret; FlexLock resists clothing clog."],
-          ["3", "Speer Gold Dot (54000GD)", "200", "1,100 FPS / 537 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "16.0-17.5 in pen, 0.66-0.68 in exp, 95%+ wt ret; bonded jacket suits ported barrel."],
+          ["2", "Hornady Critical Duty (91256)", "175", "1,160 FPS / 523 ft-lbs", "Box 1,160 FPS / 4.6 in bbl (lot SD varies)", "12.5-14.5 in pen, 0.60-0.64 in exp, 98% wt ret; FlexLock resists clothing clog."],
+          ["3", "Speer Gold Dot (54000GD)", "200", "1,100 FPS / 537 ft-lbs", "Box 1,100 FPS / 4.6 in bbl (lot SD varies)", "16.0-17.5 in pen, 0.66-0.68 in exp, 95%+ wt ret; bonded jacket suits ported barrel."],
           ["4", "SIG Sauer Elite V-Crown (E10MM1-20)", "180", "1,250 FPS / 624 ft-lbs", "9.0 FPS (10-rd semi-auto chrono)", "14.0-15.2 in pen, 0.68-0.72 in exp, ~90% wt ret; full-power option."],
-          ["5", "Hornady Custom XTP (9126)", "180", "1,275 FPS / 650 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.5-16.5 in pen, 0.65-0.68 in exp, ~92% wt ret; tapered ogive feeds well."],
-          ["6", "Winchester Defender (S10MMPDB)", "180", "1,240 FPS / 614 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.5-16.0 in pen, 0.66-0.72 in exp, ~95% wt ret; bonded construction."],
-          ["7", "Barnes VOR-TX XPB (31180)", "155", "1,340 FPS / 618 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, 0.75-0.81 in exp, 100% wt ret; solid copper port-safe."],
-          ["8", "Underwood Bonded JHP (235)", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "14.0-15.5 in pen, 0.68-0.74 in exp, ~95% wt ret; bonded bullet resists breakup."],
-          ["9", "Doubletap Bonded Defense", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "15.0-17.0 in pen, 0.65-0.70 in exp; high-energy bonded load."],
-          ["10", "Winchester Silvertip (W10MMST)", "175", "1,290 FPS / 647 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5-14.0 in pen, 0.65-0.70 in exp, ~85% wt ret; rapid energy transfer."]
+          ["5", "Hornady Custom XTP (9126)", "180", "1,275 FPS / 650 ft-lbs", "Box 1,275 FPS / 5 in bbl (lot SD varies)", "15.5-16.5 in pen, 0.65-0.68 in exp, ~92% wt ret; tapered ogive feeds well."],
+          ["6", "Winchester Defender (S10MMPDB)", "180", "1,240 FPS / 614 ft-lbs", "Box 1,240 FPS / 5 in bbl (lot SD varies)", "14.5-16.0 in pen, 0.66-0.72 in exp, ~95% wt ret; bonded construction."],
+          ["7", "Barnes VOR-TX XPB (31180)", "155", "1,340 FPS / 618 ft-lbs", "Box 1,340 FPS / 5 in bbl (lot SD varies)", "13.5-15.0 in pen, 0.75-0.81 in exp, 100% wt ret; solid copper port-safe."],
+          ["8", "Underwood Bonded JHP (235)", "180", "1,300 FPS / 676 ft-lbs", "Box 1,300 FPS / 5 in bbl (lot SD varies)", "14.0-15.5 in pen, 0.68-0.74 in exp, ~95% wt ret; bonded bullet resists breakup."],
+          ["9", "Doubletap Bonded Defense", "180", "1,300 FPS / 676 ft-lbs", "Box 1,300 FPS (lot SD varies)", "15.0-17.0 in pen, 0.65-0.70 in exp; high-energy bonded load."],
+          ["10", "Winchester Silvertip (W10MMST)", "175", "1,290 FPS / 647 ft-lbs", "Box 1,290 FPS / 5 in bbl (lot SD varies)", "12.5-14.0 in pen, 0.65-0.70 in exp, ~85% wt ret; rapid energy transfer."]
         ],
         target: [
-          ["1", "Federal Syntech Range (AE10SJ1)", "205", "1,150 FPS / 602 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Closest weight/velocity match to 200gr HST; polymer jacket keeps barrel ports clean."],
+          ["1", "Federal Syntech Range (AE10SJ1)", "205", "1,150 FPS / 602 ft-lbs", "Box 1,150 FPS / 5 in bbl (lot SD varies)", "Closest weight/velocity match to 200gr HST; polymer jacket keeps barrel ports clean."],
           ["2", "Sellier & Bellot FMJ (SB10A)", "180", "1,165 FPS (6 in bbl) / 542 ft-lbs", "10.0 FPS (10-rd semi-auto chrono)", "Verified reliable cycling and low SD on stock ~17 lb spring; copper jacket."],
           ["3", "Federal American Eagle (AE10A)", "180", "1,030 FPS / 424 ft-lbs", "4.0 FPS (10-rd semi-auto chrono)", "Tightest documented SD (4.0 FPS) for precision zeroing and smooth cycling."],
           ["4", "SIG Sauer Elite Ball (E10B1-50)", "180", "1,250 FPS / 624 ft-lbs", "9.0 FPS (10-rd semi-auto chrono)", "Matches SIG 180gr V-Crown velocity and POI; true copper jacket."],
           ["5", "Fiocchi Range Dynamics (10AP)", "180", "1,250 FPS / 624 ft-lbs", "8.4 FPS (10-rd semi-auto chrono)", "Low SD (8.4 FPS) and tapered cone profile for 180gr full-power pairing."],
           ["6", "Magtech 10mm Auto (10A)", "180", "1,230 FPS / 605 ft-lbs", "12.1 FPS (10-rd semi-auto chrono)", "Full-power copper FMJ trainer."],
-          ["7", "Winchester USA Ready (RED10)", "180", "1,250 FPS / 624 ft-lbs", "Lot-specific published data", "1,250 FPS flat-nose FMJ trainer."],
-          ["8", "Speer Lawman TMJ (53978)", "200", "1,050 FPS / 490 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "200gr weight matches 200gr Gold Dot; encapsulated base reduces port fouling."],
-          ["9", "Remington UMC (L10MM1)", "180", "1,150 FPS / 529 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Standard 180gr FMJ range load."],
-          ["10", "Underwood Range Supply (297)", "180", "1,250 FPS / 625 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "1,250 FPS FMJ-FN companion for full-power 180gr defensive loads."]
+          ["7", "Winchester USA Ready (RED10)", "180", "1,250 FPS / 624 ft-lbs", "Lot-specific factory data (lot SD varies)", "1,250 FPS flat-nose FMJ trainer."],
+          ["8", "Speer Lawman TMJ (53978)", "200", "1,050 FPS / 490 ft-lbs", "Box 1,050 FPS / 5 in bbl (lot SD varies)", "200gr weight matches 200gr Gold Dot; encapsulated base reduces port fouling."],
+          ["9", "Remington UMC (L10MM1)", "180", "1,150 FPS / 529 ft-lbs", "Box 1,150 FPS / 5 in bbl (lot SD varies)", "Standard 180gr FMJ range load."],
+          ["10", "Underwood Range Supply (297)", "180", "1,250 FPS / 625 ft-lbs", "Box 1,250 FPS / 5 in bbl (lot SD varies)", "1,250 FPS FMJ-FN companion for full-power 180gr defensive loads."]
         ]
       }
     ];
@@ -686,6 +690,10 @@
         div.textContent = item;
         div.onclick = function() {
           document.getElementById(inputMap[field]).value = item;
+          if (field === "barrel") {
+            manualBarrelOverride = true;
+            document.getElementById("barrelInput").classList.remove("autofilled");
+          }
           clearProblem(inputMap[field]);
           box.style.display = "none";
           if (field === "model") autoFillFromModel(item);
@@ -705,14 +713,31 @@
       var rndEl = document.getElementById("roundCountInput");
       if (!makeEl.value.trim()) makeEl.value = inferred.make;
       if (!calEl.value.trim()) calEl.value = inferred.caliber;
-      if (!brlEl.value.trim()) brlEl.value = inferred.barrel;
+
+      if (!brlEl.value.trim() || !manualBarrelOverride) {
+        brlEl.value = inferred.barrel;
+        brlEl.classList.add("autofilled");
+        manualBarrelOverride = false;
+        document.getElementById("barrelHint").textContent = "Auto-filled from Model (" + inferred.barrel + ") — type to override";
+      }
+
       if (!rndEl.value.trim() || rndEl.value.trim().toLowerCase() === "stock") rndEl.value = inferred.roundCount;
-      document.getElementById("barrelHint").textContent = "Auto-filled from Model (" + inferred.barrel + ") — no need to enter manually";
     }
 
     function handleFieldInput(field) {
       var map = { make: "makeInput", model: "modelInput", caliber: "caliberInput", barrel: "barrelInput", roundCount: "roundCountInput" };
       clearProblem(map[field]);
+      if (field === "barrel") {
+        var val = document.getElementById("barrelInput").value.trim();
+        manualBarrelOverride = val.length > 0;
+        document.getElementById("barrelInput").classList.remove("autofilled");
+        if (!val) {
+          document.getElementById("barrelHint").textContent = "Barrel blank — running live lookup from Model...";
+          autoFillFromModel(document.getElementById("modelInput").value);
+        } else {
+          document.getElementById("barrelHint").textContent = "Manual barrel length set (" + val + ") — clear to auto-lookup";
+        }
+      }
       if (field === "model") {
         autoFillFromModel(document.getElementById("modelInput").value);
       }
@@ -772,16 +797,16 @@
     }
 
     function renderTables(profile) {
-      var mk = stripTrademarks(profile.make) || MISSING;
-      var md = stripTrademarks(profile.model) || MISSING;
-      var cal = stripTrademarks(profile.caliber) || MISSING;
+      var mk = stripTrademarks(profile.make) || PENDING_NOTE;
+      var md = stripTrademarks(profile.model) || PENDING_NOTE;
+      var cal = stripTrademarks(profile.caliber) || PENDING_NOTE;
       var inf = inferKnownModelSpecs(md, profile.barrel);
-      var brl = stripTrademarks(profile.barrel) || (inf ? inf.barrel : MISSING);
-      var rnd = stripTrademarks(profile.roundCount) || MISSING;
+      var brl = stripTrademarks(profile.barrel) || (inf ? inf.barrel : PENDING_NOTE);
+      var rnd = stripTrademarks(profile.roundCount) || PENDING_NOTE;
 
       document.getElementById("auditTitle").textContent = mk + " | " + md + " (" + cal + ") — Platform Audit";
       var altPart = profile.state === "Altered"
-        ? (" | Altered: " + (stripTrademarks(profile.alteredDetails) || MISSING))
+        ? (" | Altered: " + (stripTrademarks(profile.alteredDetails) || PENDING_NOTE))
         : "";
       document.getElementById("auditBody").textContent =
         profile.audit + " [Config: " + profile.state + altPart + " | Barrel: " + brl + " | Spring/Condition: " + rnd + "]";
@@ -813,10 +838,12 @@
 
     function applyProfileToForm(p) {
       clearAllProblems();
+      manualBarrelOverride = false;
       document.getElementById("makeInput").value = p.make || "";
       document.getElementById("modelInput").value = p.model || "";
       document.getElementById("caliberInput").value = p.caliber || "";
       document.getElementById("barrelInput").value = p.barrel || "";
+      document.getElementById("barrelInput").classList.remove("autofilled");
       document.getElementById("stateSelect").value = p.state || "Factory";
       document.getElementById("roundCountInput").value = p.roundCount || "";
       document.getElementById("alteredDetails").value = p.alteredDetails || "";
@@ -847,25 +874,26 @@
       var rawBarrel = stripTrademarks(document.getElementById("barrelInput").value);
       var inferred = inferKnownModelSpecs(rawModel, rawBarrel);
 
-      if (inferred) {
+      if (inferred && !rawBarrel) {
         autoFillFromModel(rawModel);
+        rawBarrel = stripTrademarks(document.getElementById("barrelInput").value);
       }
 
-      var make = normalizeMake(rawMake) || (inferred ? inferred.make : MISSING);
-      var model = rawModel || MISSING;
-      var caliber = rawCal || (inferred ? inferred.caliber : MISSING);
-      var barrel = stripTrademarks(document.getElementById("barrelInput").value) || (inferred ? inferred.barrel : MISSING);
+      var make = normalizeMake(rawMake) || (inferred ? inferred.make : PENDING_NOTE);
+      var model = rawModel || PENDING_NOTE;
+      var caliber = rawCal || (inferred ? inferred.caliber : PENDING_NOTE);
+      var barrel = rawBarrel || (inferred ? inferred.barrel : PENDING_NOTE);
       var state = document.getElementById("stateSelect").value;
-      var roundCount = stripTrademarks(document.getElementById("roundCountInput").value) || (inferred ? inferred.roundCount : MISSING);
-      var alteredDetails = state === "Altered" ? (stripTrademarks(document.getElementById("alteredDetails").value) || MISSING) : "";
+      var roundCount = stripTrademarks(document.getElementById("roundCountInput").value) || (inferred ? inferred.roundCount : PENDING_NOTE);
+      var alteredDetails = state === "Altered" ? (stripTrademarks(document.getElementById("alteredDetails").value) || PENDING_NOTE) : "";
 
       var matched = resolveBallisticDataset(make, model, caliber, barrel);
 
-      if (state === "Altered" && alteredDetails === MISSING) {
+      if (state === "Altered" && alteredDetails === PENDING_NOTE) {
         openGuidanceModal({
           fieldId: "alteredDetails",
           title: "Altered Specification Needed for Accurate Guidance",
-          reason: "You selected Altered, so noting what changed (such as recoil spring weight or trigger/pin work) helps evaluate slide cycling. Your run is still saved with INSUFFICIENT DATA in that note.",
+          reason: "You selected Altered, so noting what changed (such as recoil spring weight or trigger/pin work) helps evaluate slide cycling. Your run is still saved with a pending alteration note.",
           example: "22 lb recoil spring or factory pin/spring",
           chips: ["22 lb recoil spring", "Factory spring, part swap"]
         });
@@ -882,7 +910,7 @@
           openGuidanceModal({
             fieldId: "caliberInput",
             title: 'No Loaded 10% Gel Dataset for "' + caliber + '"',
-            reason: 'This entry is saved, but verified 10% organic ordnance gelatin + 4-layer denim test data is not loaded for "' + caliber + '" yet—so matrix rows show INSUFFICIENT DATA instead of guessing.',
+            reason: 'This entry is saved, but verified 10% organic ordnance gelatin + 4-layer denim test data is not loaded for "' + caliber + '" yet.',
             example: "9mm, .30 Super Carry, or 10mm Auto",
             chips: ["9mm", ".30 Super Carry", "10mm Auto"]
           });
@@ -891,13 +919,13 @@
 
       var audit = matched
         ? matched.audit
-        : (MISSING + ' — No verified 10% organic ordnance gelatin + 4-layer denim dataset is loaded yet for "' + caliber + '".');
+        : ('No verified 10% organic ordnance gelatin + 4-layer denim dataset is loaded yet for "' + caliber + '" (' + PENDING_NOTE + ').');
       var defense = matched
         ? matched.defense
-        : [["1-10", MISSING, "-", MISSING, MISSING, 'No verified 10% organic gel + heavy denim test data loaded for "' + caliber + '" (' + MISSING + ').']];
+        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, 'No verified 10% organic gel + heavy denim test data loaded for "' + caliber + '" (' + PENDING_NOTE + ').']];
       var target = matched
         ? matched.target
-        : [["1-10", MISSING, "-", MISSING, MISSING, 'No verified matched target load data loaded for "' + caliber + '" (' + MISSING + ').']];
+        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, 'No verified matched target load data loaded for "' + caliber + '" (' + PENDING_NOTE + ').']];
 
       var newRun = {
         id: "saved-" + Date.now(),
@@ -929,25 +957,27 @@
 
     function resetForm() {
       clearAllProblems();
+      manualBarrelOverride = false;
       document.getElementById("profileSelect").value = "";
       ["makeInput", "modelInput", "caliberInput", "barrelInput", "roundCountInput", "alteredDetails"]
         .forEach(function(id) { document.getElementById(id).value = ""; });
+      document.getElementById("barrelInput").classList.remove("autofilled");
       document.getElementById("stateSelect").value = "Factory";
-      document.getElementById("barrelHint").textContent = "Optional when a recognized Model is selected";
+      document.getElementById("barrelHint").textContent = "Leave blank while typing Model to auto-fill barrel length";
       toggleAltered();
       setInputsDisabled(false);
       document.getElementById("liveLookupStatus").textContent =
         "Form cleared — enter Make, Model, or Caliber (such as 9mm, .30 SC, or 10mm) or pick a profile.";
       renderTables({
-        make: MISSING,
-        model: MISSING,
-        caliber: MISSING,
-        barrel: MISSING,
+        make: PENDING_NOTE,
+        model: PENDING_NOTE,
+        caliber: PENDING_NOTE,
+        barrel: PENDING_NOTE,
         state: "Factory",
-        roundCount: MISSING,
-        audit: MISSING + " — Form cleared. Choose a profile or enter Make/Model/Caliber and click Save Run.",
-        defense: [["1-10", MISSING, "-", MISSING, MISSING, "Select or save a firearm profile to view loadouts (" + MISSING + ")."]],
-        target: [["1-10", MISSING, "-", MISSING, MISSING, "Select or save a firearm profile to view target loads (" + MISSING + ")."]]
+        roundCount: PENDING_NOTE,
+        audit: "Form cleared (" + PENDING_NOTE + "). Choose a profile or enter Make/Model/Caliber and click Save Run.",
+        defense: [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, "Select or save a firearm profile to view loadouts (" + PENDING_NOTE + ")."]],
+        target: [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, "Select or save a firearm profile to view target loads (" + PENDING_NOTE + ")."]]
       });
     }
 
