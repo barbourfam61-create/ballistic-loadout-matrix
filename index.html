@@ -61,9 +61,7 @@
       font-size: 0.92rem;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    input.autofilled {
-      border-color: #0284c7;
-    }
+    input.autofilled { border-color: #0284c7; }
     input.field-problem, select.field-problem, textarea.field-problem {
       border-color: var(--warn);
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
@@ -114,15 +112,50 @@
     button.primary { background: #0284c7; border-color: #0369a1; }
     button.success { background: #15803d; border-color: #166534; }
     button.warn { background: #b45309; border-color: #92400e; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td {
+
+    /* Mobile-first responsive matrix cards (zero horizontal clipping on narrow screens) */
+    .matrix-list { display: flex; flex-direction: column; gap: 10px; }
+    .load-card {
+      background: var(--surface-2);
       border: 1px solid var(--border);
-      padding: 8px;
-      text-align: left;
-      vertical-align: top;
+      border-radius: 10px;
+      padding: 11px 12px;
     }
-    th { background: var(--surface-2); color: var(--accent); }
+    .load-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 6px;
+    }
+    .load-rank {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .load-name {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.92rem;
+      flex: 1;
+    }
+    .load-specs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      font-size: 0.83rem;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+    .load-specs span strong { color: #7dd3fc; font-weight: 600; }
+    .load-notes {
+      font-size: 0.85rem;
+      color: #e2e8f0;
+    }
+
     .note-box {
       background: var(--surface-2);
       border-left: 3px solid var(--warn);
@@ -175,17 +208,16 @@
     @media print {
       body { background: #fff; color: #000; }
       .toolbar, .no-print, .suggest-list, .modal-backdrop { display: none; }
-      .card, .banner { border-color: #999; background: #fff; color: #000; }
-      th { background: #eee; color: #000; }
+      .card, .banner, .load-card { border-color: #999; background: #fff; color: #000; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v2.9)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v3.0)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for top self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
-      <p><strong>Live Lookup &amp; Flexible Entry:</strong> Leave <strong>Barrel Length</strong> blank while typing Make/Model to auto-fill known barrel specs live, or type a custom barrel length to override it. Every matrix cell shows factory/test figures or clear status notes (such as lot-dependent SD or pending chrono data) so nothing sits blank.</p>
+      <p><strong>Mobile-Fit &amp; Live Lookup:</strong> All load specs fit inside the phone viewport without sideways scrolling. Leave <strong>Barrel Length</strong> blank while typing Make/Model to auto-fill known barrel specs live, or type any value to override.</p>
     </div>
 
     <div class="card no-print">
@@ -270,40 +302,12 @@
 
     <div class="card">
       <h2>Self-Defense Loads Matrix (Up to 10 — 10% Organic Gel / Heavy Denim)</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Load &amp; SKU</th>
-              <th>Gr.</th>
-              <th>Adv. FPS / Ft-Lbs</th>
-              <th>Tested SD / Chrono</th>
-              <th>10% Gel &amp; Reasoning</th>
-            </tr>
-          </thead>
-          <tbody id="defenseBody"></tbody>
-        </table>
-      </div>
+      <div id="defenseBody" class="matrix-list"></div>
     </div>
 
     <div class="card">
       <h2>Equivalent Target / Training Loads Matrix (Up to 10)</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Load &amp; SKU</th>
-              <th>Gr.</th>
-              <th>Adv. FPS / Ft-Lbs</th>
-              <th>Tested SD / Chrono</th>
-              <th>Pairing Match &amp; Reasoning</th>
-            </tr>
-          </thead>
-          <tbody id="targetBody"></tbody>
-        </table>
-      </div>
+      <div id="targetBody" class="matrix-list"></div>
     </div>
   </div>
 
@@ -321,7 +325,7 @@
   </div>
 
   <script>
-    var STORAGE_KEY = "ballistic_loadout_runs_v9";
+    var STORAGE_KEY = "ballistic_loadout_runs_v10";
     var PENDING_NOTE = "Box/lot data pending";
     var lastProblemFieldId = null;
     var manualBarrelOverride = false;
@@ -796,6 +800,49 @@
       }
     }
 
+    function renderLoadCards(containerId, rows, noteLabel) {
+      var wrap = document.getElementById(containerId);
+      wrap.innerHTML = "";
+      (rows || []).forEach(function(row) {
+        var rank = row[0] || "";
+        var name = row[1] || "";
+        var gr = row[2] || "";
+        var fps = row[3] || "";
+        var chrono = row[4] || "";
+        var notes = row[5] || "";
+
+        var card = document.createElement("div");
+        card.className = "load-card";
+
+        var head = document.createElement("div");
+        head.className = "load-head";
+        var rankSpan = document.createElement("span");
+        rankSpan.className = "load-rank";
+        rankSpan.textContent = "#" + rank;
+        var nameSpan = document.createElement("div");
+        nameSpan.className = "load-name";
+        nameSpan.textContent = name;
+        head.appendChild(rankSpan);
+        head.appendChild(nameSpan);
+
+        var specs = document.createElement("div");
+        specs.className = "load-specs";
+        specs.innerHTML =
+          "<span><strong>Gr:</strong> " + gr + "</span>" +
+          "<span><strong>Spec:</strong> " + fps + "</span>" +
+          "<span><strong>Chrono/SD:</strong> " + chrono + "</span>";
+
+        var body = document.createElement("div");
+        body.className = "load-notes";
+        body.innerHTML = "<strong>" + noteLabel + ":</strong> " + notes;
+
+        card.appendChild(head);
+        card.appendChild(specs);
+        card.appendChild(body);
+        wrap.appendChild(card);
+      });
+    }
+
     function renderTables(profile) {
       var mk = stripTrademarks(profile.make) || PENDING_NOTE;
       var md = stripTrademarks(profile.model) || PENDING_NOTE;
@@ -811,29 +858,8 @@
       document.getElementById("auditBody").textContent =
         profile.audit + " [Config: " + profile.state + altPart + " | Barrel: " + brl + " | Spring/Condition: " + rnd + "]";
 
-      var defBody = document.getElementById("defenseBody");
-      defBody.innerHTML = "";
-      (profile.defense || []).forEach(function(row) {
-        var tr = document.createElement("tr");
-        row.forEach(function(cell) {
-          var td = document.createElement("td");
-          td.textContent = cell;
-          tr.appendChild(td);
-        });
-        defBody.appendChild(tr);
-      });
-
-      var tgtBody = document.getElementById("targetBody");
-      tgtBody.innerHTML = "";
-      (profile.target || []).forEach(function(row) {
-        var tr = document.createElement("tr");
-        row.forEach(function(cell) {
-          var td = document.createElement("td");
-          td.textContent = cell;
-          tr.appendChild(td);
-        });
-        tgtBody.appendChild(tr);
-      });
+      renderLoadCards("defenseBody", profile.defense, "10% Gel & Reasoning");
+      renderLoadCards("targetBody", profile.target, "Pairing Match & Reasoning");
     }
 
     function applyProfileToForm(p) {
