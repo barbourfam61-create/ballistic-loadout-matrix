@@ -180,7 +180,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v2.6)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v2.7)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for top self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>Streamlined Input Rule:</strong> Magazine capacity and sights were removed because they do not govern external/terminal ballistics. Barrel length and round count auto-infer when a known model is chosen—you only need Make, Model, or Caliber (such as <code>9mm</code>, <code>.30 SC</code>, or <code>10mm</code>). Unmatched or missing specifics are highlighted with helpful pop-up suggestions rather than silent dead ends.</p>
     </div>
@@ -318,11 +318,11 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "ballistic_loadout_runs_v6";
-    const MISSING = "INSUFFICIENT DATA";
-    let lastProblemFieldId = null;
+    var STORAGE_KEY = "ballistic_loadout_runs_v7";
+    var MISSING = "INSUFFICIENT DATA";
+    var lastProblemFieldId = null;
 
-    const SUGGESTIONS = {
+    var SUGGESTIONS = {
       make: [
         "Smith & Wesson",
         "Glock",
@@ -366,10 +366,10 @@
       ]
     };
 
-    const PRESETS = [
+    var PRESETS = [
       {
         id: "preset-9mm-pc-carry-comp",
-        label: "S&W Performance Center M&P9 Shield Plus Carry Comp (4.0" PowerPort)",
+        label: "S&W Performance Center M&P9 Shield Plus Carry Comp (4.0 in PowerPort)",
         make: "Smith & Wesson",
         model: "M&P9 Shield Plus Carry Comp",
         caliber: "9mm",
@@ -377,18 +377,18 @@
         state: "Factory",
         alteredDetails: "",
         roundCount: "Factory PC tuned recoil spring assembly",
-        audit: "4.0" PowerPort barrel retains full 4" service velocity while venting gas upward to flatten muzzle flip. Avoid unjacketed lead or thin electroplated bullets (e.g., Blazer Brass/Aluminum) in the PowerPort; stick to true drawn-copper jackets, bonded JHPs, or polymer-encapsulated TSJ.",
+        audit: "4.0 in PowerPort barrel retains full 4 in service velocity while venting gas upward to flatten muzzle flip. Avoid unjacketed lead or thin electroplated bullets (e.g., Blazer Brass/Aluminum) in the PowerPort; stick to true drawn-copper jackets, bonded JHPs, or polymer-encapsulated TSJ.",
         defense: [
-          ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,125–1,150 FPS in 4" bbl)", "14.0"–16.0" pen, ~0.61" exp, ~99% wt ret in 10% gel behind heavy denim; benchmark LE duty load with true copper jacket."],
-          ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (~975–1,000 FPS in 4" bbl)", "~15.2" pen, ~0.61" exp in 10% gel; subsonic heavy bullet pairs smoothly with the Carry Comp PowerPort."],
-          ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,124 FPS 4" chrono)", "14.5"–16.5" pen, ~0.62"–0.64" exp; Uni-Cor electrochemically bonded jacket prevents shedding in the PowerPort."],
-          ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5"–15.0" pen, ~0.65" exp; extra gas volume drives the PowerPort compensator effectively."],
-          ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.0"–16.0" pen, ~0.55"–0.58" exp; FlexLock polymer tip eliminates denim clogging and holds core integrity."],
-          ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.0"–16.5" pen, ~0.58"–0.60" exp; bonded heavy load with mild impulse."],
-          ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "~13.2" pen, ~0.52" exp in heavy denim; light recoil and reliable feeding."],
-          ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5"–15.0" pen, ~0.65"+ talon expansion; strong barrier performance."],
-          ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0"–14.5" pen, ~0.62" exp, 100% wt ret; monolithic solid copper is completely port-safe."],
-          ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5"–15.0" pen, ~0.60" exp; stacked cavity design with tapered feeding profile."]
+          ["1", "Federal Premium HST 124gr (P9HST1)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,125-1,150 FPS in 4 in bbl)", "14.0-16.0 in pen, ~0.61 in exp, ~99% wt ret in 10% gel behind heavy denim; benchmark LE duty load with true copper jacket."],
+          ["2", "Federal Premium HST 147gr (P9HST2)", "147", "1,000 FPS / 326 ft-lbs", "INSUFFICIENT DATA (~975-1,000 FPS in 4 in bbl)", "~15.2 in pen, ~0.61 in exp in 10% gel; subsonic heavy bullet pairs smoothly with the Carry Comp PowerPort."],
+          ["3", "Speer Gold Dot 124gr (53618)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (~1,124 FPS 4 in chrono)", "14.5-16.5 in pen, ~0.62-0.64 in exp; Uni-Cor electrochemically bonded jacket prevents shedding in the PowerPort."],
+          ["4", "Speer Gold Dot 124gr +P (53617)", "124", "1,220 FPS / 410 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.65 in exp; extra gas volume drives the PowerPort compensator effectively."],
+          ["5", "Hornady Critical Duty 135gr +P (90226)", "135", "1,110 FPS / 369 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.0-16.0 in pen, ~0.55-0.58 in exp; FlexLock polymer tip eliminates denim clogging and holds core integrity."],
+          ["6", "Speer Gold Dot 147gr (53619)", "147", "985 FPS / 317 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.0-16.5 in pen, ~0.58-0.60 in exp; bonded heavy load with mild impulse."],
+          ["7", "Hornady Critical Defense 115gr FTX (90250)", "115", "1,135 FPS / 329 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "~13.2 in pen, ~0.52 in exp in heavy denim; light recoil and reliable feeding."],
+          ["8", "Winchester Ranger T-Series 124gr +P (RA9124TP)", "124", "1,180 FPS / 383 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.65 in+ talon expansion; strong barrier performance."],
+          ["9", "Barnes TAC-XPD 115gr +P (21527)", "115", "1,125 FPS / 323 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.0-14.5 in pen, ~0.62 in exp, 100% wt ret; monolithic solid copper is completely port-safe."],
+          ["10", "Sig Sauer Elite V-Crown 124gr (E9MMA2-20)", "124", "1,165 FPS / 374 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, ~0.60 in exp; stacked cavity design with tapered feeding profile."]
         ],
         target: [
           ["1", "Federal American Eagle 124gr FMJ (AE9AP)", "124", "1,150 FPS / 364 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Exact weight/velocity match to 124gr HST & Gold Dot; true copper jacket safe for PowerPort."],
@@ -405,7 +405,7 @@
       },
       {
         id: "preset-30sc-shield-plus",
-        label: "S&W M&P 30 Super Carry Shield Plus (3.1", Stock Spring)",
+        label: "S&W M&P 30 Super Carry Shield Plus (3.1 in, Stock Spring)",
         make: "Smith & Wesson",
         model: "M&P 30 Super Carry Shield Plus",
         caliber: ".30 Super Carry",
@@ -413,26 +413,26 @@
         state: "Factory",
         alteredDetails: "",
         roundCount: "3 yrs old, factory captured guide rod & recoil spring",
-        audit: "3.1" barrel loses ~70–105 FPS vs. 4" test barrels at 50,000 PSI. Only 5 commercial JHP loads and 4 commercial FMJ loads exist; remaining slots show INSUFFICIENT DATA. Keep feed ramp clean.",
+        audit: "3.1 in barrel loses ~70-105 FPS vs. 4 in test barrels at 50,000 PSI. Only 5 commercial JHP loads and 4 commercial FMJ loads exist; remaining slots show INSUFFICIENT DATA.",
         defense: [
-          ["1", "Federal Premium HST (P30HST1S)", "100", "1,250 FPS / 347 ft-lbs", "SD ~5–6 FPS (ES 16; 1,160 FPS avg in 3.1")", "15.5" pen, 0.55"–0.57" exp, 99%+ wt ret in 10% Vyse gel; tuned for short barrels."],
-          ["2", "Hornady Critical Defense (90050)", "100", "1,250 FPS / 347 ft-lbs", "SD ~6 FPS (ES 17; 1,170 FPS avg in 3.1")", "15.25"–16.0" pen, ~0.49" exp, ~100% wt ret; FTX tip resists denim clogging."],
-          ["3", "Remington HTP (R20019)", "100", "1,235 FPS / 339 ft-lbs", "SD ~10 FPS (ES 27; 1,126 FPS avg in 3.1")", "16.0" pen, ~0.54" exp, ~99% wt ret in 10% Vyse gel."],
-          ["4", "Speer Gold Dot (24261GD)", "115", "1,150 FPS / 338 ft-lbs", "SD ~7–8 FPS (ES 20; 1,055 FPS avg in 3.1")", "16.0" pen, ~0.56" exp in 10% organic gel; 3.1" speed sits near expansion edge."],
-          ["5", "Federal Personal Defense Punch (PD30P1)", "103", "1,130 FPS / 292 ft-lbs", "INSUFFICIENT DATA (3.1" SD unverified)", "Lower velocity from 3.1" barrel; inconsistent expansion through heavy barrier."],
-          ["6–10", "INSUFFICIENT DATA", "—", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry JHP loads verified."]
+          ["1", "Federal Premium HST (P30HST1S)", "100", "1,250 FPS / 347 ft-lbs", "SD ~5-6 FPS (ES 16; 1,160 FPS avg in 3.1 in)", "15.5 in pen, 0.55-0.57 in exp, 99%+ wt ret in 10% Vyse gel; tuned for short barrels."],
+          ["2", "Hornady Critical Defense (90050)", "100", "1,250 FPS / 347 ft-lbs", "SD ~6 FPS (ES 17; 1,170 FPS avg in 3.1 in)", "15.25-16.0 in pen, ~0.49 in exp, ~100% wt ret; FTX tip resists denim clogging."],
+          ["3", "Remington HTP (R20019)", "100", "1,235 FPS / 339 ft-lbs", "SD ~10 FPS (ES 27; 1,126 FPS avg in 3.1 in)", "16.0 in pen, ~0.54 in exp, ~99% wt ret in 10% Vyse gel."],
+          ["4", "Speer Gold Dot (24261GD)", "115", "1,150 FPS / 338 ft-lbs", "SD ~7-8 FPS (ES 20; 1,055 FPS avg in 3.1 in)", "16.0 in pen, ~0.56 in exp in 10% organic gel; 3.1 in speed sits near expansion edge."],
+          ["5", "Federal Personal Defense Punch (PD30P1)", "103", "1,130 FPS / 292 ft-lbs", "INSUFFICIENT DATA (3.1 in SD unverified)", "Lower velocity from 3.1 in barrel; inconsistent expansion through heavy barrier."],
+          ["6-10", "INSUFFICIENT DATA", "-", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry JHP loads verified."]
         ],
         target: [
-          ["1", "Federal American Eagle (AE30SCA)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,165 FPS in 3.1")", "Exact weight/velocity match for 100gr HST; rounded ogive feeds smoothly."],
-          ["2", "Remington UMC (R20015)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,160 FPS in 3.1")", "Matches 100gr / 1,250 FPS spec and round-nose feeding profile."],
-          ["3", "CCI Blazer Brass (5205)", "115", "1,150 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,065 FPS in 3.1")", "Matches 115gr Gold Dot weight/FPS; flat-nose prefers clean feed ramp."],
-          ["4", "Federal Champion Training (C3090A)", "90", "1,300 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,210 FPS in 3.1")", "Brisk cycling on stock spring; lighter 90gr bullet shifts POI slightly."],
-          ["5–10", "INSUFFICIENT DATA", "—", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry FMJ loads verified."]
+          ["1", "Federal American Eagle (AE30SCA)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,165 FPS in 3.1 in)", "Exact weight/velocity match for 100gr HST; rounded ogive feeds smoothly."],
+          ["2", "Remington UMC (R20015)", "100", "1,250 FPS / 347 ft-lbs", "INSUFFICIENT DATA (~1,160 FPS in 3.1 in)", "Matches 100gr / 1,250 FPS spec and round-nose feeding profile."],
+          ["3", "CCI Blazer Brass (5205)", "115", "1,150 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,065 FPS in 3.1 in)", "Matches 115gr Gold Dot weight/FPS; flat-nose prefers clean feed ramp."],
+          ["4", "Federal Champion Training (C3090A)", "90", "1,300 FPS / 338 ft-lbs", "INSUFFICIENT DATA (~1,210 FPS in 3.1 in)", "Brisk cycling on stock spring; lighter 90gr bullet shifts POI slightly."],
+          ["5-10", "INSUFFICIENT DATA", "-", "INSUFFICIENT DATA", "INSUFFICIENT DATA", "No additional commercial .30 Super Carry FMJ loads verified."]
         ]
       },
       {
         id: "preset-10mm-pc-56",
-        label: "S&W Performance Center M&P 10mm M2.0 (5.6" Ported)",
+        label: "S&W Performance Center M&P 10mm M2.0 (5.6 in Ported)",
         make: "Smith & Wesson",
         model: "Performance Center M&P 10mm M2.0",
         caliber: "10mm Auto",
@@ -440,22 +440,22 @@
         state: "Factory",
         alteredDetails: "",
         roundCount: "Factory captured guide rod & ~17 lb spring",
-        audit: "5.6" ported barrel adds ~40–65 FPS over 4.6" barrels on moderate loads while venting gas upward. Avoid unjacketed lead/hardcast or thin-plated bullets in ports and avoid PMC nose-dive-prone loads on the stock ~17 lb spring.",
+        audit: "5.6 in ported barrel adds ~40-65 FPS over 4.6 in barrels on moderate loads while venting gas upward. Avoid unjacketed lead/hardcast or thin-plated bullets in ports and avoid PMC nose-dive-prone loads on the stock ~17 lb spring.",
         defense: [
-          ["1", "Federal Premium HST (P10HST1S)", "200", "1,130 FPS / 567 ft-lbs", "4.0–9.0 FPS (multi-test range)", "15.0"–15.5" pen, 0.70"–0.78" exp, 99% wt ret in 10% organic gel; smooth on stock spring."],
-          ["2", "Hornady Critical Duty (91256)", "175", "1,160 FPS / 523 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5"–14.5" pen, 0.60"–0.64" exp, 98% wt ret; FlexLock resists clothing clog."],
-          ["3", "Speer Gold Dot (54000GD)", "200", "1,100 FPS / 537 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "16.0"–17.5" pen, 0.66"–0.68" exp, 95%+ wt ret; bonded jacket suits ported barrel."],
-          ["4", "SIG Sauer Elite V-Crown (E10MM1-20)", "180", "1,250 FPS / 624 ft-lbs", "9.0 FPS (10-rd semi-auto chrono)", "14.0"–15.2" pen, 0.68"–0.72" exp, ~90% wt ret; full-power option."],
-          ["5", "Hornady Custom XTP (9126)", "180", "1,275 FPS / 650 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.5"–16.5" pen, 0.65"–0.68" exp, ~92% wt ret; tapered ogive feeds well."],
-          ["6", "Winchester Defender (S10MMPDB)", "180", "1,240 FPS / 614 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.5"–16.0" pen, 0.66"–0.72" exp, ~95% wt ret; bonded construction."],
-          ["7", "Barnes VOR-TX XPB (31180)", "155", "1,340 FPS / 618 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5"–15.0" pen, 0.75"–0.81" exp, 100% wt ret; solid copper port-safe."],
-          ["8", "Underwood Bonded JHP (235)", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "14.0"–15.5" pen, 0.68"–0.74" exp, ~95% wt ret; bonded bullet resists breakup."],
-          ["9", "Doubletap Bonded Defense", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "15.0"–17.0" pen, 0.65"–0.70" exp; high-energy bonded load."],
-          ["10", "Winchester Silvertip (W10MMST)", "175", "1,290 FPS / 647 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5"–14.0" pen, 0.65"–0.70" exp, ~85% wt ret; rapid energy transfer."]
+          ["1", "Federal Premium HST (P10HST1S)", "200", "1,130 FPS / 567 ft-lbs", "4.0-9.0 FPS (multi-test range)", "15.0-15.5 in pen, 0.70-0.78 in exp, 99% wt ret in 10% organic gel; smooth on stock spring."],
+          ["2", "Hornady Critical Duty (91256)", "175", "1,160 FPS / 523 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5-14.5 in pen, 0.60-0.64 in exp, 98% wt ret; FlexLock resists clothing clog."],
+          ["3", "Speer Gold Dot (54000GD)", "200", "1,100 FPS / 537 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "16.0-17.5 in pen, 0.66-0.68 in exp, 95%+ wt ret; bonded jacket suits ported barrel."],
+          ["4", "SIG Sauer Elite V-Crown (E10MM1-20)", "180", "1,250 FPS / 624 ft-lbs", "9.0 FPS (10-rd semi-auto chrono)", "14.0-15.2 in pen, 0.68-0.72 in exp, ~90% wt ret; full-power option."],
+          ["5", "Hornady Custom XTP (9126)", "180", "1,275 FPS / 650 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "15.5-16.5 in pen, 0.65-0.68 in exp, ~92% wt ret; tapered ogive feeds well."],
+          ["6", "Winchester Defender (S10MMPDB)", "180", "1,240 FPS / 614 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "14.5-16.0 in pen, 0.66-0.72 in exp, ~95% wt ret; bonded construction."],
+          ["7", "Barnes VOR-TX XPB (31180)", "155", "1,340 FPS / 618 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "13.5-15.0 in pen, 0.75-0.81 in exp, 100% wt ret; solid copper port-safe."],
+          ["8", "Underwood Bonded JHP (235)", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "14.0-15.5 in pen, 0.68-0.74 in exp, ~95% wt ret; bonded bullet resists breakup."],
+          ["9", "Doubletap Bonded Defense", "180", "1,300 FPS / 676 ft-lbs", "INSUFFICIENT DATA (RSA-dependent)", "15.0-17.0 in pen, 0.65-0.70 in exp; high-energy bonded load."],
+          ["10", "Winchester Silvertip (W10MMST)", "175", "1,290 FPS / 647 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "12.5-14.0 in pen, 0.65-0.70 in exp, ~85% wt ret; rapid energy transfer."]
         ],
         target: [
           ["1", "Federal Syntech Range (AE10SJ1)", "205", "1,150 FPS / 602 ft-lbs", "INSUFFICIENT DATA (Lot-dependent)", "Closest weight/velocity match to 200gr HST; polymer jacket keeps barrel ports clean."],
-          ["2", "Sellier & Bellot FMJ (SB10A)", "180", "1,165 FPS (6" bbl) / 542 ft-lbs", "10.0 FPS (10-rd semi-auto chrono)", "Verified reliable cycling and low SD on stock ~17 lb spring; copper jacket."],
+          ["2", "Sellier & Bellot FMJ (SB10A)", "180", "1,165 FPS (6 in bbl) / 542 ft-lbs", "10.0 FPS (10-rd semi-auto chrono)", "Verified reliable cycling and low SD on stock ~17 lb spring; copper jacket."],
           ["3", "Federal American Eagle (AE10A)", "180", "1,030 FPS / 424 ft-lbs", "4.0 FPS (10-rd semi-auto chrono)", "Tightest documented SD (4.0 FPS) for precision zeroing and smooth cycling."],
           ["4", "SIG Sauer Elite Ball (E10B1-50)", "180", "1,250 FPS / 624 ft-lbs", "9.0 FPS (10-rd semi-auto chrono)", "Matches SIG 180gr V-Crown velocity and POI; true copper jacket."],
           ["5", "Fiocchi Range Dynamics (10AP)", "180", "1,250 FPS / 624 ft-lbs", "8.4 FPS (10-rd semi-auto chrono)", "Low SD (8.4 FPS) and tapered cone profile for 180gr full-power pairing."],
@@ -473,37 +473,37 @@
     }
 
     function normalizeCaliber(raw) {
-      const s = stripTrademarks(raw).toLowerCase();
+      var s = stripTrademarks(raw).toLowerCase();
       if (!s) return "";
-      if (s === "9" || s === "9mm" || s.includes("9x19") || s.includes("luger")) return "9mm";
-      if (s.includes("30 sc") || s.includes(".30 sc") || s.includes("30 super") || s.includes(".30 super")) return "30sc";
-      if (s === "10" || s.includes("10mm")) return "10mm";
+      if (s === "9" || s === "9mm" || s.indexOf("9x19") !== -1 || s.indexOf("luger") !== -1) return "9mm";
+      if (s.indexOf("30 sc") !== -1 || s.indexOf(".30 sc") !== -1 || s.indexOf("30 super") !== -1 || s.indexOf(".30 super") !== -1) return "30sc";
+      if (s === "10" || s.indexOf("10mm") !== -1) return "10mm";
       return s;
     }
 
     function normalizeMake(raw) {
-      const s = stripTrademarks(raw).toLowerCase();
+      var s = stripTrademarks(raw).toLowerCase();
       if (!s) return "";
-      if (s === "s&w" || s === "sw" || s.includes("smith") || s.includes("wesson")) return "Smith & Wesson";
+      if (s === "s&w" || s === "sw" || s.indexOf("smith") !== -1 || s.indexOf("wesson") !== -1) return "Smith & Wesson";
       return stripTrademarks(raw);
     }
 
     function inferKnownModelSpecs(modelText) {
-      const m = stripTrademarks(modelText).toLowerCase();
-      if (m.includes("carry comp") || m.includes("13990") || m.includes("13991")) {
+      var m = stripTrademarks(modelText).toLowerCase();
+      if (m.indexOf("carry comp") !== -1 || m.indexOf("13990") !== -1 || m.indexOf("13991") !== -1) {
         return { make: "Smith & Wesson", caliber: "9mm", barrel: "4.0 in (PowerPort)", roundCount: "Factory PC tuned recoil spring assembly", preset: PRESETS[0] };
       }
-      if (m.includes("30 super") || m.includes("30 sc")) {
+      if (m.indexOf("30 super") !== -1 || m.indexOf("30 sc") !== -1) {
         return { make: "Smith & Wesson", caliber: ".30 Super Carry", barrel: "3.1 in (Unported)", roundCount: "Factory captured guide rod & spring", preset: PRESETS[1] };
       }
-      if (m.includes("10mm")) {
+      if (m.indexOf("10mm") !== -1) {
         return { make: "Smith & Wesson", caliber: "10mm Auto", barrel: "5.6 in (Twin Ports)", roundCount: "Factory captured guide rod & ~17 lb spring", preset: PRESETS[2] };
       }
       return null;
     }
 
     function clearProblem(fieldId) {
-      const el = document.getElementById(fieldId);
+      var el = document.getElementById(fieldId);
       if (el) el.classList.remove("field-problem");
     }
 
@@ -512,29 +512,29 @@
     }
 
     function highlightField(fieldId) {
-      const el = document.getElementById(fieldId);
+      var el = document.getElementById(fieldId);
       if (el) el.classList.add("field-problem");
     }
 
-    function openGuidanceModal({ fieldId, title, reason, example, chips }) {
-      lastProblemFieldId = fieldId;
-      highlightField(fieldId);
-      document.getElementById("modalTitle").textContent = title;
-      document.getElementById("modalReason").textContent = reason;
-      document.getElementById("modalExample").textContent = example ? `Helpful format example: ${example}` : "";
+    function openGuidanceModal(opts) {
+      lastProblemFieldId = opts.fieldId;
+      highlightField(opts.fieldId);
+      document.getElementById("modalTitle").textContent = opts.title;
+      document.getElementById("modalReason").textContent = opts.reason;
+      document.getElementById("modalExample").textContent = opts.example ? ("Helpful format example: " + opts.example) : "";
 
-      const chipsWrap = document.getElementById("modalChips");
+      var chipsWrap = document.getElementById("modalChips");
       chipsWrap.innerHTML = "";
-      (chips || []).forEach((chipVal) => {
-        const btn = document.createElement("button");
+      (opts.chips || []).forEach(function(chipVal) {
+        var btn = document.createElement("button");
         btn.type = "button";
         btn.className = "chip-btn";
-        btn.textContent = `Use "${chipVal}"`;
-        btn.onclick = () => {
-          const target = document.getElementById(fieldId);
+        btn.textContent = 'Use "' + chipVal + '"';
+        btn.onclick = function() {
+          var target = document.getElementById(opts.fieldId);
           if (target) {
             target.value = chipVal;
-            clearProblem(fieldId);
+            clearProblem(opts.fieldId);
             closeGuidanceModal();
             runBackgroundLookup();
           }
@@ -552,7 +552,7 @@
     function focusProblemField() {
       closeGuidanceModal();
       if (lastProblemFieldId) {
-        const el = document.getElementById(lastProblemFieldId);
+        var el = document.getElementById(lastProblemFieldId);
         if (el) el.focus();
       }
     }
@@ -569,15 +569,15 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
     }
 
-    function refreshDropdown(selectedId = "") {
-      const select = document.getElementById("profileSelect");
-      const saved = getSavedRuns();
-      select.innerHTML = `<option value="">-- Choose a Firearm Profile --</option>`;
+    function refreshDropdown(selectedId) {
+      var select = document.getElementById("profileSelect");
+      var saved = getSavedRuns();
+      select.innerHTML = '<option value="">-- Choose a Firearm Profile --</option>';
 
-      const presetGroup = document.createElement("optgroup");
+      var presetGroup = document.createElement("optgroup");
       presetGroup.label = "Pre-Populated Profiles";
-      PRESETS.forEach((p) => {
-        const opt = document.createElement("option");
+      PRESETS.forEach(function(p) {
+        var opt = document.createElement("option");
         opt.value = p.id;
         opt.textContent = p.label;
         presetGroup.appendChild(opt);
@@ -585,10 +585,10 @@
       select.appendChild(presetGroup);
 
       if (saved.length > 0) {
-        const savedGroup = document.createElement("optgroup");
+        var savedGroup = document.createElement("optgroup");
         savedGroup.label = "Saved Custom Runs";
-        saved.forEach((r) => {
-          const opt = document.createElement("option");
+        saved.forEach(function(r) {
+          var opt = document.createElement("option");
           opt.value = r.id;
           opt.textContent = r.label;
           savedGroup.appendChild(opt);
@@ -600,29 +600,31 @@
     }
 
     function showSuggestions(field) {
-      const inputMap = {
+      var inputMap = {
         make: "makeInput",
         model: "modelInput",
         caliber: "caliberInput",
         barrel: "barrelInput",
         roundCount: "roundCountInput"
       };
-      const listId = field + "Suggest";
-      const box = document.getElementById(listId);
-      const val = stripTrademarks(document.getElementById(inputMap[field]).value).toLowerCase();
+      var listId = field + "Suggest";
+      var box = document.getElementById(listId);
+      var val = stripTrademarks(document.getElementById(inputMap[field]).value).toLowerCase();
 
-      Object.keys(inputMap).forEach((k) => {
+      Object.keys(inputMap).forEach(function(k) {
         if (k !== field) {
-          const other = document.getElementById(k + "Suggest");
+          var other = document.getElementById(k + "Suggest");
           if (other) other.style.display = "none";
         }
       });
 
-      const pool = SUGGESTIONS[field] || [];
-      const matches = val
-        ? pool.filter((item) => item.toLowerCase().includes(val) ||
-            (field === "make" && (val === "s&w" || val === "sw") && item.toLowerCase().includes("smith")) ||
-            (field === "caliber" && val === "9" && item.toLowerCase().includes("9mm")))
+      var pool = SUGGESTIONS[field] || [];
+      var matches = val
+        ? pool.filter(function(item) {
+            return item.toLowerCase().indexOf(val) !== -1 ||
+              (field === "make" && (val === "s&w" || val === "sw") && item.toLowerCase().indexOf("smith") !== -1) ||
+              (field === "caliber" && val === "9" && item.toLowerCase().indexOf("9mm") !== -1);
+          })
         : pool;
 
       if (matches.length === 0) {
@@ -631,11 +633,11 @@
       }
 
       box.innerHTML = "";
-      matches.slice(0, 6).forEach((item) => {
-        const div = document.createElement("div");
+      matches.slice(0, 6).forEach(function(item) {
+        var div = document.createElement("div");
         div.className = "suggest-item";
         div.textContent = item;
-        div.onclick = () => {
+        div.onclick = function() {
           document.getElementById(inputMap[field]).value = item;
           clearProblem(inputMap[field]);
           box.style.display = "none";
@@ -648,21 +650,21 @@
     }
 
     function autoFillFromModel(modelVal) {
-      const inferred = inferKnownModelSpecs(modelVal);
+      var inferred = inferKnownModelSpecs(modelVal);
       if (!inferred) return;
-      const makeEl = document.getElementById("makeInput");
-      const calEl = document.getElementById("caliberInput");
-      const brlEl = document.getElementById("barrelInput");
-      const rndEl = document.getElementById("roundCountInput");
+      var makeEl = document.getElementById("makeInput");
+      var calEl = document.getElementById("caliberInput");
+      var brlEl = document.getElementById("barrelInput");
+      var rndEl = document.getElementById("roundCountInput");
       if (!makeEl.value.trim()) makeEl.value = inferred.make;
       if (!calEl.value.trim()) calEl.value = inferred.caliber;
       if (!brlEl.value.trim()) brlEl.value = inferred.barrel;
       if (!rndEl.value.trim() || rndEl.value.trim().toLowerCase() === "stock") rndEl.value = inferred.roundCount;
-      document.getElementById("barrelHint").textContent = `Auto-filled from Model (${inferred.barrel}) — no need to enter manually`;
+      document.getElementById("barrelHint").textContent = "Auto-filled from Model (" + inferred.barrel + ") — no need to enter manually";
     }
 
     function handleFieldInput(field) {
-      const map = { make: "makeInput", model: "modelInput", caliber: "caliberInput", barrel: "barrelInput", roundCount: "roundCountInput" };
+      var map = { make: "makeInput", model: "modelInput", caliber: "caliberInput", barrel: "barrelInput", roundCount: "roundCountInput" };
       clearProblem(map[field]);
       if (field === "model") {
         autoFillFromModel(document.getElementById("modelInput").value);
@@ -671,42 +673,42 @@
       runBackgroundLookup();
     }
 
-    document.addEventListener("click", (e) => {
+    document.addEventListener("click", function(e) {
       if (!e.target.closest(".field-wrap")) {
-        document.querySelectorAll(".suggest-list").forEach((el) => { el.style.display = "none"; });
+        document.querySelectorAll(".suggest-list").forEach(function(el) { el.style.display = "none"; });
       }
     });
 
     function toggleAltered() {
-      const state = document.getElementById("stateSelect").value;
+      var state = document.getElementById("stateSelect").value;
       document.getElementById("alteredWrap").style.display = state === "Altered" ? "block" : "none";
       if (state !== "Altered") clearProblem("alteredDetails");
     }
 
     function setInputsDisabled(disabled) {
       ["makeInput", "modelInput", "caliberInput", "barrelInput", "stateSelect", "roundCountInput", "alteredDetails"]
-        .forEach((id) => { document.getElementById(id).disabled = disabled; });
+        .forEach(function(id) { document.getElementById(id).disabled = disabled; });
     }
 
     function resolveBallisticDataset(make, model, caliber) {
-      const calKey = normalizeCaliber(caliber);
+      var calKey = normalizeCaliber(caliber);
       if (calKey === "9mm") return PRESETS[0];
       if (calKey === "30sc") return PRESETS[1];
       if (calKey === "10mm") return PRESETS[2];
 
-      const inferred = inferKnownModelSpecs(model);
+      var inferred = inferKnownModelSpecs(model);
       if (inferred && inferred.preset) return inferred.preset;
       return null;
     }
 
-    async function runBackgroundLookup() {
-      const statusEl = document.getElementById("liveLookupStatus");
-      const rawMake = stripTrademarks(document.getElementById("makeInput").value);
-      const rawModel = stripTrademarks(document.getElementById("modelInput").value);
-      const rawCal = stripTrademarks(document.getElementById("caliberInput").value);
-      const inferred = inferKnownModelSpecs(rawModel);
-      const effectiveCal = rawCal || (inferred ? inferred.caliber : "");
-      const matched = resolveBallisticDataset(normalizeMake(rawMake), rawModel, effectiveCal);
+    function runBackgroundLookup() {
+      var statusEl = document.getElementById("liveLookupStatus");
+      var rawMake = stripTrademarks(document.getElementById("makeInput").value);
+      var rawModel = stripTrademarks(document.getElementById("modelInput").value);
+      var rawCal = stripTrademarks(document.getElementById("caliberInput").value);
+      var inferred = inferKnownModelSpecs(rawModel);
+      var effectiveCal = rawCal || (inferred ? inferred.caliber : "");
+      var matched = resolveBallisticDataset(normalizeMake(rawMake), rawModel, effectiveCal);
 
       if (!rawMake && !rawModel && !rawCal) {
         statusEl.textContent = "Ready — pick a profile or enter Make, Model, or Caliber (such as 9mm, .30 SC, or 10mm).";
@@ -714,44 +716,45 @@
       }
 
       if (matched) {
-        statusEl.textContent = `Matched verified dataset for ${matched.caliber} (10% organic gel / heavy denim).`;
+        statusEl.textContent = "Matched verified dataset for " + matched.caliber + " (10% organic gel / heavy denim).";
       } else {
-        statusEl.textContent = `No loaded 10% organic gel dataset yet for "${effectiveCal || rawModel || rawMake}" — click Save Run for quick format tips.`;
+        statusEl.textContent = 'No loaded 10% organic gel dataset yet for "' + (effectiveCal || rawModel || rawMake) + '" — click Save Run for quick format tips.';
       }
     }
 
     function renderTables(profile) {
-      const mk = stripTrademarks(profile.make) || MISSING;
-      const md = stripTrademarks(profile.model) || MISSING;
-      const cal = stripTrademarks(profile.caliber) || MISSING;
-      const brl = stripTrademarks(profile.barrel) || (inferKnownModelSpecs(md)?.barrel || MISSING);
-      const rnd = stripTrademarks(profile.roundCount) || MISSING;
+      var mk = stripTrademarks(profile.make) || MISSING;
+      var md = stripTrademarks(profile.model) || MISSING;
+      var cal = stripTrademarks(profile.caliber) || MISSING;
+      var inf = inferKnownModelSpecs(md);
+      var brl = stripTrademarks(profile.barrel) || (inf ? inf.barrel : MISSING);
+      var rnd = stripTrademarks(profile.roundCount) || MISSING;
 
-      document.getElementById("auditTitle").textContent = `${mk} | ${md} (${cal}) — Platform Audit`;
-      const altPart = profile.state === "Altered"
-        ? ` | Altered: ${stripTrademarks(profile.alteredDetails) || MISSING}`
+      document.getElementById("auditTitle").textContent = mk + " | " + md + " (" + cal + ") — Platform Audit";
+      var altPart = profile.state === "Altered"
+        ? (" | Altered: " + (stripTrademarks(profile.alteredDetails) || MISSING))
         : "";
       document.getElementById("auditBody").textContent =
-        `${profile.audit} [Config: ${profile.state}${altPart} | Barrel: ${brl} | Spring/Condition: ${rnd}]`;
+        profile.audit + " [Config: " + profile.state + altPart + " | Barrel: " + brl + " | Spring/Condition: " + rnd + "]";
 
-      const defBody = document.getElementById("defenseBody");
+      var defBody = document.getElementById("defenseBody");
       defBody.innerHTML = "";
-      (profile.defense || []).forEach((row) => {
-        const tr = document.createElement("tr");
-        row.forEach((cell) => {
-          const td = document.createElement("td");
+      (profile.defense || []).forEach(function(row) {
+        var tr = document.createElement("tr");
+        row.forEach(function(cell) {
+          var td = document.createElement("td");
           td.textContent = cell;
           tr.appendChild(td);
         });
         defBody.appendChild(tr);
       });
 
-      const tgtBody = document.getElementById("targetBody");
+      var tgtBody = document.getElementById("targetBody");
       tgtBody.innerHTML = "";
-      (profile.target || []).forEach((row) => {
-        const tr = document.createElement("tr");
-        row.forEach((cell) => {
-          const td = document.createElement("td");
+      (profile.target || []).forEach(function(row) {
+        var tr = document.createElement("tr");
+        row.forEach(function(cell) {
+          var td = document.createElement("td");
           td.textContent = cell;
           tr.appendChild(td);
         });
@@ -774,10 +777,13 @@
     }
 
     function loadSelectedProfile() {
-      const id = document.getElementById("profileSelect").value;
+      var id = document.getElementById("profileSelect").value;
       if (!id) return;
-      const all = [...PRESETS, ...getSavedRuns()];
-      const found = all.find((item) => item.id === id);
+      var all = PRESETS.concat(getSavedRuns());
+      var found = null;
+      for (var i = 0; i < all.length; i++) {
+        if (all[i].id === id) { found = all[i]; break; }
+      }
       if (found) {
         applyProfileToForm(found);
         setInputsDisabled(false);
@@ -786,24 +792,24 @@
 
     function saveProfile() {
       clearAllProblems();
-      const rawMake = stripTrademarks(document.getElementById("makeInput").value);
-      const rawModel = stripTrademarks(document.getElementById("modelInput").value);
-      const rawCal = stripTrademarks(document.getElementById("caliberInput").value);
-      const inferred = inferKnownModelSpecs(rawModel);
+      var rawMake = stripTrademarks(document.getElementById("makeInput").value);
+      var rawModel = stripTrademarks(document.getElementById("modelInput").value);
+      var rawCal = stripTrademarks(document.getElementById("caliberInput").value);
+      var inferred = inferKnownModelSpecs(rawModel);
 
       if (inferred) {
         autoFillFromModel(rawModel);
       }
 
-      const make = normalizeMake(rawMake) || (inferred ? inferred.make : MISSING);
-      const model = rawModel || MISSING;
-      const caliber = rawCal || (inferred ? inferred.caliber : MISSING);
-      const barrel = stripTrademarks(document.getElementById("barrelInput").value) || (inferred ? inferred.barrel : MISSING);
-      const state = document.getElementById("stateSelect").value;
-      const roundCount = stripTrademarks(document.getElementById("roundCountInput").value) || (inferred ? inferred.roundCount : MISSING);
-      const alteredDetails = state === "Altered" ? (stripTrademarks(document.getElementById("alteredDetails").value) || MISSING) : "";
+      var make = normalizeMake(rawMake) || (inferred ? inferred.make : MISSING);
+      var model = rawModel || MISSING;
+      var caliber = rawCal || (inferred ? inferred.caliber : MISSING);
+      var barrel = stripTrademarks(document.getElementById("barrelInput").value) || (inferred ? inferred.barrel : MISSING);
+      var state = document.getElementById("stateSelect").value;
+      var roundCount = stripTrademarks(document.getElementById("roundCountInput").value) || (inferred ? inferred.roundCount : MISSING);
+      var alteredDetails = state === "Altered" ? (stripTrademarks(document.getElementById("alteredDetails").value) || MISSING) : "";
 
-      const matched = resolveBallisticDataset(make, model, caliber);
+      var matched = resolveBallisticDataset(make, model, caliber);
 
       if (state === "Altered" && alteredDetails === MISSING) {
         openGuidanceModal({
@@ -825,32 +831,40 @@
         } else {
           openGuidanceModal({
             fieldId: "caliberInput",
-            title: `No Loaded 10% Gel Dataset for "${caliber}"`,
-            reason: `This entry is saved, but verified 10% organic ordnance gelatin + 4-layer denim test data isn't loaded for "${caliber}" yet—so matrix rows show INSUFFICIENT DATA instead of guessing.`,
+            title: 'No Loaded 10% Gel Dataset for "' + caliber + '"',
+            reason: 'This entry is saved, but verified 10% organic ordnance gelatin + 4-layer denim test data is not loaded for "' + caliber + '" yet—so matrix rows show INSUFFICIENT DATA instead of guessing.',
             example: "9mm, .30 Super Carry, or 10mm Auto",
             chips: ["9mm", ".30 Super Carry", "10mm Auto"]
           });
         }
       }
 
-      const audit = matched
+      var audit = matched
         ? matched.audit
-        : `${MISSING} — No verified 10% organic ordnance gelatin + 4-layer denim dataset is loaded yet for "${caliber}".`;
-      const defense = matched
+        : (MISSING + ' — No verified 10% organic ordnance gelatin + 4-layer denim dataset is loaded yet for "' + caliber + '".');
+      var defense = matched
         ? matched.defense
-        : [["1–10", MISSING, "—", MISSING, MISSING, `No verified 10% organic gel + heavy denim test data loaded for "${caliber}" (${MISSING}).`]];
-      const target = matched
+        : [["1-10", MISSING, "-", MISSING, MISSING, 'No verified 10% organic gel + heavy denim test data loaded for "' + caliber + '" (' + MISSING + ').']];
+      var target = matched
         ? matched.target
-        : [["1–10", MISSING, "—", MISSING, MISSING, `No verified matched target load data loaded for "${caliber}" (${MISSING}).`]];
+        : [["1-10", MISSING, "-", MISSING, MISSING, 'No verified matched target load data loaded for "' + caliber + '" (' + MISSING + ').']];
 
-      const newRun = {
+      var newRun = {
         id: "saved-" + Date.now(),
-        label: `${make} | ${model} (${caliber}) — Saved`,
-        make, model, caliber, barrel, state, roundCount, alteredDetails,
-        audit, defense, target
+        label: make + " | " + model + " (" + caliber + ") — Saved",
+        make: make,
+        model: model,
+        caliber: caliber,
+        barrel: barrel,
+        state: state,
+        roundCount: roundCount,
+        alteredDetails: alteredDetails,
+        audit: audit,
+        defense: defense,
+        target: target
       };
 
-      const saved = getSavedRuns();
+      var saved = getSavedRuns();
       saved.unshift(newRun);
       setSavedRuns(saved);
       refreshDropdown(newRun.id);
@@ -867,7 +881,7 @@
       clearAllProblems();
       document.getElementById("profileSelect").value = "";
       ["makeInput", "modelInput", "caliberInput", "barrelInput", "roundCountInput", "alteredDetails"]
-        .forEach((id) => { document.getElementById(id).value = ""; });
+        .forEach(function(id) { document.getElementById(id).value = ""; });
       document.getElementById("stateSelect").value = "Factory";
       document.getElementById("barrelHint").textContent = "Optional when a recognized Model is selected";
       toggleAltered();
@@ -881,9 +895,9 @@
         barrel: MISSING,
         state: "Factory",
         roundCount: MISSING,
-        audit: `${MISSING} — Form cleared. Choose a profile or enter Make/Model/Caliber and click Save Run.`,
-        defense: [["1–10", MISSING, "—", MISSING, MISSING, `Select or save a firearm profile to view loadouts (${MISSING}).`]],
-        target: [["1–10", MISSING, "—", MISSING, MISSING, `Select or save a firearm profile to view target loads (${MISSING}).`]]
+        audit: MISSING + " — Form cleared. Choose a profile or enter Make/Model/Caliber and click Save Run.",
+        defense: [["1-10", MISSING, "-", MISSING, MISSING, "Select or save a firearm profile to view loadouts (" + MISSING + ")."]],
+        target: [["1-10", MISSING, "-", MISSING, MISSING, "Select or save a firearm profile to view target loads (" + MISSING + ")."]]
       });
     }
 
