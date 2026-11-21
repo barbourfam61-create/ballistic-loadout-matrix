@@ -15,7 +15,6 @@
       --accent: #38bdf8;
       --accent-2: #22c55e;
       --warn: #f59e0b;
-      --danger: #ef4444;
     }
     * { box-sizing: border-box; }
     body {
@@ -136,7 +135,6 @@
       font-size: 0.82rem;
       color: #bae6fd;
     }
-    /* Interactive Pop-Up Guidance Modal */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -306,7 +304,6 @@
     </div>
   </div>
 
-  <!-- Pop-Up Guidance Modal for Problem / Unmatched Fields -->
   <div id="guidanceModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-card">
       <h3 id="modalTitle">Input Guidance &amp; Suggestions</h3>
@@ -321,7 +318,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "ballistic_loadout_runs_v4";
+    const STORAGE_KEY = "ballistic_loadout_runs_v5";
     const MISSING = "INSUFFICIENT DATA";
     let lastProblemFieldId = null;
 
@@ -471,8 +468,12 @@
       }
     ];
 
+    function stripTrademarks(raw) {
+      return (raw || "").replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
+    }
+
     function normalizeCaliber(raw) {
-      const s = (raw || "").toLowerCase().trim();
+      const s = stripTrademarks(raw).toLowerCase();
       if (!s) return "";
       if (s === "9" || s === "9mm" || s.includes("9x19") || s.includes("luger")) return "9mm";
       if (s.includes("30 sc") || s.includes(".30 sc") || s.includes("30 super") || s.includes(".30 super")) return "30sc";
@@ -481,15 +482,15 @@
     }
 
     function normalizeMake(raw) {
-      const s = (raw || "").toLowerCase().trim();
+      const s = stripTrademarks(raw).toLowerCase();
       if (!s) return "";
       if (s === "s&w" || s === "sw" || s.includes("smith") || s.includes("wesson")) return "Smith & Wesson";
-      return (raw || "").trim();
+      return stripTrademarks(raw);
     }
 
     function inferKnownModelSpecs(modelText) {
-      const m = (modelText || "").toLowerCase();
-      if (m.includes("carry comp") || m.includes("13990")) {
+      const m = stripTrademarks(modelText).toLowerCase();
+      if (m.includes("carry comp") || m.includes("13990") || m.includes("13991")) {
         return { make: "Smith & Wesson", caliber: "9mm", barrel: "4.0 in (PowerPort)", roundCount: "Factory PC tuned recoil spring assembly", preset: PRESETS[0] };
       }
       if (m.includes("30 super") || m.includes("30 sc")) {
@@ -608,7 +609,7 @@
       };
       const listId = field + "Suggest";
       const box = document.getElementById(listId);
-      const val = (document.getElementById(inputMap[field]).value || "").toLowerCase().trim();
+      const val = stripTrademarks(document.getElementById(inputMap[field]).value).toLowerCase();
 
       Object.keys(inputMap).forEach((k) => {
         if (k !== field) {
@@ -656,7 +657,7 @@
       if (!makeEl.value.trim()) makeEl.value = inferred.make;
       if (!calEl.value.trim()) calEl.value = inferred.caliber;
       if (!brlEl.value.trim()) brlEl.value = inferred.barrel;
-      if (!rndEl.value.trim()) rndEl.value = inferred.roundCount;
+      if (!rndEl.value.trim() || rndEl.value.trim().toLowerCase() === "stock") rndEl.value = inferred.roundCount;
       document.getElementById("barrelHint").textContent = `Auto-filled from Model (${inferred.barrel}) — no need to enter manually`;
     }
 
@@ -700,9 +701,9 @@
 
     async function runBackgroundLookup() {
       const statusEl = document.getElementById("liveLookupStatus");
-      const rawMake = document.getElementById("makeInput").value.trim();
-      const rawModel = document.getElementById("modelInput").value.trim();
-      const rawCal = document.getElementById("caliberInput").value.trim();
+      const rawMake = stripTrademarks(document.getElementById("makeInput").value);
+      const rawModel = stripTrademarks(document.getElementById("modelInput").value);
+      const rawCal = stripTrademarks(document.getElementById("caliberInput").value);
       const inferred = inferKnownModelSpecs(rawModel);
       const effectiveCal = rawCal || (inferred ? inferred.caliber : "");
       const matched = resolveBallisticDataset(normalizeMake(rawMake), rawModel, effectiveCal);
@@ -710,15 +711,6 @@
       if (!rawMake && !rawModel && !rawCal) {
         statusEl.textContent = "Ready — pick a profile or enter Make, Model, or Caliber (such as 9mm, .30 SC, or 10mm).";
         return;
-      }
-
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 1000);
-        await fetch("https://api.github.com", { signal: controller.signal });
-        clearTimeout(timer);
-      } catch (e) {
-        // Non-blocking fallback
       }
 
       if (matched) {
@@ -729,15 +721,15 @@
     }
 
     function renderTables(profile) {
-      const mk = (profile.make || "").trim() || MISSING;
-      const md = (profile.model || "").trim() || MISSING;
-      const cal = (profile.caliber || "").trim() || MISSING;
-      const brl = (profile.barrel || "").trim() || (inferKnownModelSpecs(md)?.barrel || MISSING);
-      const rnd = (profile.roundCount || "").trim() || MISSING;
+      const mk = stripTrademarks(profile.make) || MISSING;
+      const md = stripTrademarks(profile.model) || MISSING;
+      const cal = stripTrademarks(profile.caliber) || MISSING;
+      const brl = stripTrademarks(profile.barrel) || (inferKnownModelSpecs(md)?.barrel || MISSING);
+      const rnd = stripTrademarks(profile.roundCount) || MISSING;
 
       document.getElementById("auditTitle").textContent = `${mk} | ${md} (${cal}) — Platform Audit`;
       const altPart = profile.state === "Altered"
-        ? ` | Altered: ${(profile.alteredDetails || "").trim() || MISSING}`
+        ? ` | Altered: ${stripTrademarks(profile.alteredDetails) || MISSING}`
         : "";
       document.getElementById("auditBody").textContent =
         `${profile.audit} [Config: ${profile.state}${altPart} | Barrel: ${brl} | Spring/Condition: ${rnd}]`;
@@ -794,22 +786,25 @@
 
     function saveProfile() {
       clearAllProblems();
-      const rawMake = document.getElementById("makeInput").value.trim();
-      const rawModel = document.getElementById("modelInput").value.trim();
-      const rawCal = document.getElementById("caliberInput").value.trim();
+      const rawMake = stripTrademarks(document.getElementById("makeInput").value);
+      const rawModel = stripTrademarks(document.getElementById("modelInput").value);
+      const rawCal = stripTrademarks(document.getElementById("caliberInput").value);
       const inferred = inferKnownModelSpecs(rawModel);
+
+      if (inferred) {
+        autoFillFromModel(rawModel);
+      }
 
       const make = normalizeMake(rawMake) || (inferred ? inferred.make : MISSING);
       const model = rawModel || MISSING;
       const caliber = rawCal || (inferred ? inferred.caliber : MISSING);
-      const barrel = document.getElementById("barrelInput").value.trim() || (inferred ? inferred.barrel : MISSING);
+      const barrel = stripTrademarks(document.getElementById("barrelInput").value) || (inferred ? inferred.barrel : MISSING);
       const state = document.getElementById("stateSelect").value;
-      const roundCount = document.getElementById("roundCountInput").value.trim() || (inferred ? inferred.roundCount : MISSING);
-      const alteredDetails = state === "Altered" ? (document.getElementById("alteredDetails").value.trim() || MISSING) : "";
+      const roundCount = stripTrademarks(document.getElementById("roundCountInput").value) || (inferred ? inferred.roundCount : MISSING);
+      const alteredDetails = state === "Altered" ? (stripTrademarks(document.getElementById("alteredDetails").value) || MISSING) : "";
 
       const matched = resolveBallisticDataset(make, model, caliber);
 
-      // Pop-up guidance if Caliber/Model is missing or if Altered was picked without details
       if (state === "Altered" && alteredDetails === MISSING) {
         openGuidanceModal({
           fieldId: "alteredDetails",
@@ -823,7 +818,7 @@
           openGuidanceModal({
             fieldId: "caliberInput",
             title: "Caliber Missing — Try a Standard Format",
-            reason: "Entering a caliber (or choosing a known model) lets the matrix match 10% organic gel + heavy denim data. Magazine capacity is omitted because it does not affect ballistics, and barrel length is auto-filled when a known model is entered.",
+            reason: "Entering a caliber (or choosing a known model) lets the matrix match 10% organic gel + heavy denim data.",
             example: "9mm, .30 Super Carry, or 10mm Auto",
             chips: ["9mm", ".30 Super Carry", "10mm Auto"]
           });
