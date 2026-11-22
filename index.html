@@ -110,10 +110,63 @@
       cursor: pointer;
     }
     button:disabled {
-      opacity: 0.45;
+      opacity: 0.48;
       cursor: not-allowed;
     }
-    button.go-btn { background: #0369a1; border-color: #0284c7; }
+
+    /* Animated Go / Lookup button with left-to-right calibrated progress fill & spinner */
+    button.go-btn {
+      position: relative;
+      overflow: hidden;
+      background: #0369a1;
+      border-color: #0284c7;
+      min-width: 146px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button.go-btn.searching {
+      background: #1e293b;
+      border-color: #38bdf8;
+      color: #e0f2fe;
+      cursor: wait;
+      opacity: 1;
+    }
+    .go-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(14, 165, 233, 0.45), rgba(56, 189, 248, 0.72));
+      transition: width 0.28s ease-out;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .go-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .go-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(224, 242, 254, 0.3);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spinTail 0.75s linear infinite;
+      display: none;
+    }
+    button.go-btn.searching .go-spinner {
+      display: inline-block;
+    }
+    @keyframes spinTail {
+      to { transform: rotate(360deg); }
+    }
+
     button.primary { background: #0284c7; border-color: #0369a1; }
     button.success { background: #15803d; border-color: #166534; }
     button.warn { background: #b45309; border-color: #92400e; }
@@ -224,9 +277,9 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.0)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.1)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
-      <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup that auto-populates verified specs and previews the load matrices before <strong>Save Run</strong> unlocks.</p>
+      <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. Verified specs and load matrices populate before <strong>Save Run</strong> unlocks.</p>
     </div>
 
     <div class="card no-print">
@@ -297,7 +350,13 @@
       <div id="liveLookupStatus" class="status-pill">Step 1: Enter Make &amp; Model, then tap <strong>Go / Lookup</strong> to auto-populate specs before saving.</div>
 
       <div class="toolbar">
-        <button id="goLookupBtn" class="go-btn" type="button" onclick="runGoLookup()">Go / Lookup</button>
+        <button id="goLookupBtn" class="go-btn" type="button" onclick="runGoLookup()">
+          <span id="goFillBar" class="go-fill"></span>
+          <span class="go-label">
+            <span class="go-spinner" aria-hidden="true"></span>
+            <span id="goBtnText">Go / Lookup</span>
+          </span>
+        </button>
         <button id="saveRunBtn" class="success" type="button" onclick="saveProfile()" disabled>Save Run</button>
         <button class="primary" type="button" onclick="enableEdit()">Edit</button>
         <button class="warn" type="button" onclick="resetForm()">Reset</button>
@@ -336,23 +395,6 @@
 
   <script>
     var MASTER_STORAGE_KEY = "ballistic_loadout_runs_master";
-    var LEGACY_KEYS = [
-      "ballistic_loadout_runs_v51",
-      "ballistic_loadout_runs_v50",
-      "ballistic_loadout_runs_v12",
-      "ballistic_loadout_runs_v11",
-      "ballistic_loadout_runs_v10",
-      "ballistic_loadout_runs_v9",
-      "ballistic_loadout_runs_v8",
-      "ballistic_loadout_runs_v7",
-      "ballistic_loadout_runs_v6",
-      "ballistic_loadout_runs_v5",
-      "ballistic_loadout_runs_v4",
-      "ballistic_loadout_runs_v3",
-      "ballistic_loadout_runs_v2",
-      "ballistic_loadout_runs_v1"
-    ];
-
     var NOT_SPECIFIED = "Not specified";
     var UNKNOWN_BARREL_NOTE = "Unverified (left blank)";
     var lastProblemFieldId = null;
@@ -515,40 +557,48 @@
       return stripTrademarks(raw);
     }
 
+    // Scans EVERY key in localStorage so any saved runs from any prior version are recovered intact.
     function migrateAndLoadSavedRuns() {
       var merged = [];
       var seenIds = {};
 
-      function collectFromKey(key) {
-        try {
-          var raw = localStorage.getItem(key);
-          if (!raw) return;
-          var arr = JSON.parse(raw);
-          if (!Array.isArray(arr)) return;
-          for (var i = 0; i < arr.length; i++) {
-            var item = arr[i];
-            if (!item || !item.id) continue;
-            if (!seenIds[item.id]) {
-              seenIds[item.id] = true;
-              // Clean any legacy "Box/lot data pending" strings from migrated runs
-              if (item.make === "Box/lot data pending") item.make = NOT_SPECIFIED;
-              if (item.model === "Box/lot data pending") item.model = NOT_SPECIFIED;
-              if (item.caliber === "Box/lot data pending") item.caliber = NOT_SPECIFIED;
-              if (item.roundCount === "Box/lot data pending") item.roundCount = NOT_SPECIFIED;
-              merged.push(item);
-            }
+      function collectArray(arr) {
+        if (!Array.isArray(arr)) return;
+        for (var i = 0; i < arr.length; i++) {
+          var item = arr[i];
+          if (!item || typeof item !== "object" || !item.id) continue;
+          if (!seenIds[item.id]) {
+            seenIds[item.id] = true;
+            if (item.make === "Box/lot data pending") item.make = NOT_SPECIFIED;
+            if (item.model === "Box/lot data pending") item.model = NOT_SPECIFIED;
+            if (item.caliber === "Box/lot data pending") item.caliber = NOT_SPECIFIED;
+            if (item.roundCount === "Box/lot data pending") item.roundCount = NOT_SPECIFIED;
+            merged.push(item);
           }
-        } catch (e) {}
-      }
-
-      collectFromKey(MASTER_STORAGE_KEY);
-      for (var k = 0; k < LEGACY_KEYS.length; k++) {
-        collectFromKey(LEGACY_KEYS[k]);
+        }
       }
 
       try {
+        var masterRaw = localStorage.getItem(MASTER_STORAGE_KEY);
+        if (masterRaw) collectArray(JSON.parse(masterRaw));
+      } catch (e) {}
+
+      try {
+        for (var idx = 0; idx < localStorage.length; idx++) {
+          var k = localStorage.key(idx);
+          if (!k || k === MASTER_STORAGE_KEY) continue;
+          if (k.indexOf("ballistic") !== -1 || k.indexOf("loadout") !== -1 || k.indexOf("runs") !== -1) {
+            try {
+              var val = localStorage.getItem(k);
+              if (val) collectArray(JSON.parse(val));
+            } catch (e2) {}
+          }
+        }
+      } catch (e3) {}
+
+      try {
         localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(merged));
-      } catch (e2) {}
+      } catch (e4) {}
       return merged;
     }
 
@@ -560,7 +610,7 @@
 
     function extractInchesFromText(text) {
       if (!text) return "";
-      var match = text.match(/(\d+(?:\.\d+)?)\s*(?:in|inch(?:es)?|["”])/i);
+      var match = text.match(/(\d+(?:\.\d+)?)\s*(?:in|inch(?:es)?)/i);
       if (!match) return "";
       var val = parseFloat(match[1]);
       if (isNaN(val) || val <= 0 || val > 60) return "";
@@ -577,13 +627,37 @@
       return "";
     }
 
-    // Real-time search across Wikipedia Search + Extract API (with origin=* for browser CORS) and DuckDuckGo API.
-    async function performLiveSpecLookup(makeRaw, modelRaw) {
+    function fetchWithTimeout(url, ms) {
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, ms);
+      return fetch(url, { signal: controller.signal }).finally(function() {
+        clearTimeout(timer);
+      });
+    }
+
+    function setGoProgress(percent, labelText, isSearching) {
+      var btn = document.getElementById("goLookupBtn");
+      var fill = document.getElementById("goFillBar");
+      var txt = document.getElementById("goBtnText");
+      if (!btn || !fill || !txt) return;
+
+      if (isSearching) {
+        btn.classList.add("searching");
+        btn.disabled = true;
+      } else {
+        btn.classList.remove("searching");
+        btn.disabled = false;
+      }
+      fill.style.width = Math.max(0, Math.min(100, percent)) + "%";
+      txt.textContent = labelText;
+    }
+
+    // Real-time search across Wikipedia Search + Extract API (origin=*) and DuckDuckGo API with calibrated progress updates.
+    async function performLiveSpecLookup(makeRaw, modelRaw, onProgress) {
       var make = stripTrademarks(makeRaw);
       var model = stripTrademarks(modelRaw);
       if (!make && !model) return null;
 
-      // Normalize common model abbreviations for search query (e.g., "G47 MOS" -> "Glock 47")
       var searchModel = model.replace(/^g(\d+)/i, "Glock $1").replace(/mos/i, "").trim();
       var queryTerms = [make, searchModel].filter(Boolean).join(" ");
       var foundBarrel = "";
@@ -591,11 +665,14 @@
       var foundSource = "";
       var foundSnippet = "";
 
+      if (onProgress) onProgress(22, "Searching...");
+
       // 1. Wikipedia Search API (supports browser CORS via origin=*)
       try {
         var wikiSearchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
           encodeURIComponent(queryTerms) + "&format=json&origin=*&srlimit=3";
-        var sRes = await fetch(wikiSearchUrl);
+        var sRes = await fetchWithTimeout(wikiSearchUrl, 3500);
+        if (onProgress) onProgress(52, "Parsing specs...");
         if (sRes.ok) {
           var sData = await sRes.json();
           var hits = (sData.query && sData.query.search) ? sData.query.search : [];
@@ -603,7 +680,7 @@
             var title = hits[i].title;
             var extUrl = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=" +
               encodeURIComponent(title) + "&format=json&origin=*";
-            var eRes = await fetch(extUrl);
+            var eRes = await fetchWithTimeout(extUrl, 3500);
             if (eRes.ok) {
               var eData = await eRes.json();
               var pages = (eData.query && eData.query.pages) ? eData.query.pages : {};
@@ -625,11 +702,12 @@
         }
       } catch (e) {}
 
-      // 2. DuckDuckGo Instant Answer API fallback
+      // 2. DuckDuckGo Instant Answer API fallback if barrel not found yet
       if (!foundBarrel) {
+        if (onProgress) onProgress(78, "Checking web...");
         try {
           var ddgUrl = "https://api.duckduckgo.com/?q=" + encodeURIComponent(queryTerms + " barrel length") + "&format=json&no_html=1&skip_disambig=1";
-          var ddgRes = await fetch(ddgUrl);
+          var ddgRes = await fetchWithTimeout(ddgUrl, 3500);
           if (ddgRes.ok) {
             var ddgData = await ddgRes.json();
             var candidates = [];
@@ -655,6 +733,8 @@
           }
         } catch (e2) {}
       }
+
+      if (onProgress) onProgress(100, "Complete");
 
       return {
         query: queryTerms,
@@ -689,8 +769,14 @@
         return;
       }
 
-      statusEl.textContent = 'Searching live sources for "' + [makeVal, modelVal].filter(Boolean).join(" ") + '"...';
-      var res = await performLiveSpecLookup(makeVal, modelVal);
+      var labelStr = [makeVal, modelVal].filter(Boolean).join(" ");
+      setGoProgress(10, "Starting...", true);
+      statusEl.textContent = "Lookup active for " + labelStr + " — querying live sources...";
+
+      var res = await performLiveSpecLookup(makeVal, modelVal, function(pct, phaseLabel) {
+        setGoProgress(pct, phaseLabel, true);
+        statusEl.textContent = "Lookup active (" + pct + "%) — " + phaseLabel + " for " + labelStr;
+      });
       lastLookupResult = res;
 
       if (res && res.caliber && !calEl.value.trim()) {
@@ -702,23 +788,26 @@
         brlEl.value = res.barrel;
         brlEl.classList.add("autofilled");
         hintEl.textContent = "Verified from live lookup: " + res.barrel;
-        statusEl.innerHTML = "Lookup complete — verified <strong>" + res.barrel + "</strong>" +
-          (res.sourceUrl ? (' (<a class="source-link" href="' + res.sourceUrl + '" target="_blank" rel="noopener">Source</a>)') : "") +
+        statusEl.innerHTML = "Lookup complete (100%) — verified <strong>" + res.barrel + "</strong>" +
+          (res.sourceUrl ? (" (<a class="source-link" href="" + res.sourceUrl + "" target="_blank" rel="noopener">Source</a>)") : "") +
           ". Review below and tap <strong>Save Run</strong>.";
       } else {
         if (!brlEl.value.trim()) {
           brlEl.classList.remove("autofilled");
           hintEl.textContent = "No verified barrel length found in live lookup — left blank";
         }
-        statusEl.textContent = "Lookup complete — no verified barrel inch measurement returned (left blank). Review below and tap Save Run.";
+        statusEl.textContent = "Lookup complete (100%) — no verified barrel inch measurement returned (left blank). Review below and tap Save Run.";
       }
 
-      // Render live preview immediately so user sees full audit & load matrices before saving
       var previewRun = buildRunObjectFromForm();
       renderTables(previewRun);
 
       lookupCompletedForCurrentInputs = true;
       setSaveEnabled(true);
+
+      setTimeout(function() {
+        setGoProgress(0, "Go / Lookup", false);
+      }, 650);
     }
 
     function clearProblem(fieldId) {
@@ -748,7 +837,7 @@
         var btn = document.createElement("button");
         btn.type = "button";
         btn.className = "chip-btn";
-        btn.textContent = 'Use "' + chipVal + '"';
+        btn.textContent = "Use " + chipVal;
         btn.onclick = function() {
           var target = document.getElementById(opts.fieldId);
           if (target) {
@@ -778,7 +867,7 @@
     function refreshDropdown(selectedId) {
       var select = document.getElementById("profileSelect");
       var saved = migrateAndLoadSavedRuns();
-      select.innerHTML = '<option value="">-- Choose a Profile or Saved Run --</option>';
+      select.innerHTML = "<option value="">-- Choose a Profile or Saved Run --</option>";
 
       if (saved.length > 0) {
         var savedGroup = document.createElement("optgroup");
@@ -853,6 +942,7 @@
     function markInputsDirty() {
       lookupCompletedForCurrentInputs = false;
       setSaveEnabled(false);
+      setGoProgress(0, "Go / Lookup", false);
       document.getElementById("liveLookupStatus").textContent =
         "Inputs updated — tap Go / Lookup to research & populate before Save Run unlocks.";
     }
@@ -866,7 +956,6 @@
       if (field === "make" || field === "model") {
         markInputsDirty();
       } else if (field === "caliber" && stripTrademarks(document.getElementById("caliberInput").value)) {
-        // If caliber is manually entered after lookup or directly, update preview and allow saving
         renderTables(buildRunObjectFromForm());
         setSaveEnabled(true);
       }
@@ -970,7 +1059,7 @@
       var ammoPack = AMMO_BY_CALIBER[caliber] || null;
       var audit = ammoPack
         ? ("Factory published ammunition specifications shown for " + caliber + " (10% organic ordnance gelatin behind 4-layer heavy denim).")
-        : ("No verified load matrix loaded yet for caliber "" + caliber + "".");
+        : ("No verified load matrix loaded yet for caliber " + caliber + ".");
 
       var defense = ammoPack
         ? ammoPack.defense
@@ -1068,6 +1157,7 @@
       clearAllProblems();
       lastLookupResult = null;
       lookupCompletedForCurrentInputs = false;
+      setGoProgress(0, "Go / Lookup", false);
       document.getElementById("profileSelect").value = "";
       ["makeInput", "modelInput", "caliberInput", "barrelInput", "roundCountInput", "alteredDetails"]
         .forEach(function(id) { document.getElementById(id).value = ""; });
