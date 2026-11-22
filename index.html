@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.4)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.5)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
@@ -411,6 +411,17 @@
     </div>
   </div>
 
+  <div id="modelDisambigModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="disambigModalTitle">
+    <div class="modal-card">
+      <h3 id="disambigModalTitle">Select Exact Model / Variant</h3>
+      <p id="disambigModalReason"></p>
+      <div id="disambigModelChips" class="chip-row"></div>
+      <div class="modal-actions">
+        <button type="button" onclick="closeModelDisambigModal()">Keep Current Model</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     var MASTER_STORAGE_KEY = "ballistic_loadout_runs_master";
     var NOT_SPECIFIED = "Not specified";
@@ -483,6 +494,32 @@
       pendingDeleteAction = onConfirmed;
       document.getElementById("deleteModalReason").textContent = messageText;
       document.getElementById("deleteConfirmModal").classList.add("open");
+    }
+
+    function closeModelDisambigModal() {
+      document.getElementById("modelDisambigModal").classList.remove("open");
+    }
+
+    function openModelDisambigModal(reasonText, modelCandidates) {
+      document.getElementById("disambigModalReason").textContent = reasonText;
+      var wrap = document.getElementById("disambigModelChips");
+      wrap.innerHTML = "";
+      (modelCandidates || []).forEach(function(candModel) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip-btn";
+        btn.textContent = candModel;
+        btn.onclick = function() {
+          document.getElementById("modelInput").value = candModel;
+          document.getElementById("barrelInput").value = "";
+          document.getElementById("barrelInput").classList.remove("autofilled");
+          clearProblem("modelInput");
+          closeModelDisambigModal();
+          runGoLookup();
+        };
+        wrap.appendChild(btn);
+      });
+      document.getElementById("modelDisambigModal").classList.add("open");
     }
 
     function closeDeleteModal() {
@@ -867,12 +904,22 @@
 
       try {
         var wikiSearchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
-          encodeURIComponent(queryTerms) + "&format=json&origin=*&srlimit=2";
+          encodeURIComponent(queryTerms) + "&format=json&origin=*&srlimit=6";
         var sRes = await fetchWithTimeout(wikiSearchUrl, 3500);
         if (onProgress) onProgress(55, "Reading infobox...");
         if (sRes.ok) {
           var sData = await sRes.json();
           var hits = (sData.query && sData.query.search) ? sData.query.search : [];
+          var candidateModels = [];
+          var normSearchLower = searchModel.toLowerCase();
+          for (var h = 0; h < hits.length; h++) {
+            var hTitle = stripTrademarks(hits[h].title || "");
+            if (!hTitle) continue;
+            var cleanModelTitle = hTitle.replace(new RegExp("^" + make.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+", "i"), "").trim();
+            if (cleanModelTitle && cleanModelTitle.toLowerCase().indexOf(normSearchLower) !== -1 && candidateModels.indexOf(cleanModelTitle) === -1) {
+              candidateModels.push(cleanModelTitle);
+            }
+          }
           for (var i = 0; i < hits.length; i++) {
             var title = hits[i].title;
             // Query both intro text and raw wikitext (to capture | part_length = and | cartridge = in infoboxes)
@@ -964,7 +1011,8 @@
         barrels: foundBarrels,
         caliber: foundCaliber || "",
         sourceUrl: foundSource || "",
-        sourceLabel: foundSourceLabel || ""
+        sourceLabel: foundSourceLabel || "",
+        candidateModels: (typeof candidateModels !== "undefined") ? candidateModels : []
       };
     }
 
@@ -1054,6 +1102,15 @@
       }
 
       var existingManualBarrel = stripTrademarks(brlEl.value);
+
+      if (res && Array.isArray(res.candidateModels) && res.candidateModels.length > 1 && !existingManualBarrel) {
+        setTimeout(function() { setGoProgress(0, "Go / Lookup", false); }, 400);
+        openModelDisambigModal(
+          "Multiple matching model entries appeared in search results for '" + labelStr + "'. Choose the exact model or variant below to resolve its barrel length:",
+          res.candidateModels.slice(0, 5)
+        );
+        return;
+      }
 
       if (res && res.barrels && res.barrels.length === 1) {
         var singleBbl = res.barrels[0];
