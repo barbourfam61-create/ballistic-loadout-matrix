@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.3)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.4)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks</strong>—if live lookup leaves it blank, enter barrel length manually first.</p>
     </div>
@@ -584,12 +584,15 @@
         for (var idx = 0; idx < localStorage.length; idx++) {
           var k = localStorage.key(idx);
           if (!k || k === MASTER_STORAGE_KEY) continue;
-          if (k.indexOf("ballistic") !== -1 || k.indexOf("loadout") !== -1 || k.indexOf("runs") !== -1) {
-            try {
-              var val = localStorage.getItem(k);
-              if (val) collectArray(JSON.parse(val));
-            } catch (e2) {}
-          }
+          try {
+            var val = localStorage.getItem(k);
+            if (val && val.charAt(0) === "[") {
+              var parsed = JSON.parse(val);
+              if (Array.isArray(parsed) && parsed.length > 0 && parsed[0] && (parsed[0].make || parsed[0].model || parsed[0].caliber)) {
+                collectArray(parsed);
+              }
+            }
+          } catch (e2) {}
         }
       } catch (e3) {}
 
@@ -857,7 +860,7 @@
         openGuidanceModal({
           fieldId: "barrelInput",
           title: "Barrel Length Required Before Populating Ammo",
-          reason: "No verified barrel length was returned by live lookup for "" + labelStr + "". Enter the barrel length manually in the highlighted Barrel Length field before ammo matrices populate or Save Run unlocks.",
+          reason: "No verified barrel length was returned by live lookup for '" + labelStr + "'. Enter the barrel length manually in the highlighted Barrel Length field before ammo matrices populate or Save Run unlocks.",
           example: "4.49 in",
           chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
         });
