@@ -274,9 +274,9 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.5)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.0)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
-      <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks</strong>—if live lookup leaves it blank, enter barrel length manually first.</p>
+      <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
 
     <div class="card no-print">
@@ -297,7 +297,7 @@
         <div class="field-wrap">
           <label for="makeInput">Make</label>
           <input id="makeInput" type="text" autocomplete="off" placeholder="e.g., Glock or Smith &amp; Wesson" oninput="handleFieldInput('make')" onfocus="showSuggestions('make')" />
-          <div class="hint-inline">Manufacturer source prioritized when available</div>
+          <div class="hint-inline">Checks saved runs first, then live lookup sources</div>
           <div id="makeSuggest" class="suggest-list"></div>
         </div>
 
@@ -309,16 +309,16 @@
         </div>
 
         <div class="field-wrap">
-          <label for="caliberInput">Caliber (Auto-filled by Go / Lookup or enter manually)</label>
+          <label for="caliberInput">Caliber (Auto-filled by Lookup or enter manually)</label>
           <input id="caliberInput" type="text" autocomplete="off" placeholder="e.g., 9mm, 9x19mm, .30 SC, 10mm" oninput="handleFieldInput('caliber')" onfocus="showSuggestions('caliber')" />
           <div class="hint-inline">Accepted formats: 9mm, 9x19mm, .30 SC, 10mm</div>
           <div id="caliberSuggest" class="suggest-list"></div>
         </div>
 
         <div class="field-wrap">
-          <label for="barrelInput">Barrel Length (Auto-filled by Go / Lookup; blank if unverified)</label>
-          <input id="barrelInput" type="text" autocomplete="off" placeholder="Populated by Go / Lookup when verified" oninput="handleFieldInput('barrel')" onfocus="showSuggestions('barrel')" />
-          <div id="barrelHint" class="hint-inline">Blank unless verified by live lookup or entered manually</div>
+          <label for="barrelInput">Barrel Length (Required before ammo populates)</label>
+          <input id="barrelInput" type="text" autocomplete="off" placeholder="Populated by lookup or enter manually (e.g., 4.7 in)" oninput="handleFieldInput('barrel')" onfocus="showSuggestions('barrel')" />
+          <div id="barrelHint" class="hint-inline">Blank unless verified by saved run, live lookup, or manual entry</div>
           <div id="barrelSuggest" class="suggest-list"></div>
         </div>
 
@@ -344,7 +344,7 @@
         <textarea id="alteredDetails" placeholder="e.g., 22 lb recoil spring or apex trigger kit..." oninput="clearProblem('alteredDetails')"></textarea>
       </div>
 
-      <div id="liveLookupStatus" class="status-pill">Step 1: Enter Make &amp; Model, then tap <strong>Go / Lookup</strong> to auto-populate specs before saving.</div>
+      <div id="liveLookupStatus" class="status-pill">Step 1: Enter Make &amp; Model, then tap <strong>Go / Lookup</strong> to check saved runs and live sources.</div>
 
       <div class="toolbar">
         <button id="goLookupBtn" class="go-btn" type="button" onclick="runGoLookup()">
@@ -552,6 +552,10 @@
       return (raw || "").replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
     }
 
+    function normalizeKeyPart(raw) {
+      return stripTrademarks(raw).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+
     function normalizeCaliber(raw) {
       var s = stripTrademarks(raw).toLowerCase();
       if (!s) return "";
@@ -615,13 +619,69 @@
       } catch (e) {}
     }
 
-    function extractInchesFromText(text) {
-      if (!text) return "";
-      var match = text.match(/(\d+(?:\.\d+)?)\s*(?:in|inch(?:es)?)/i);
-      if (!match) return "";
-      var val = parseFloat(match[1]);
-      if (isNaN(val) || val <= 0 || val > 60) return "";
-      return val + " in";
+    // Tier 1 lookup: checks saved runs for exact Make + Model match with a saved barrel length.
+    function lookupSavedRunBarrel(makeRaw, modelRaw) {
+      var mkKey = normalizeKeyPart(makeRaw);
+      var mdKey = normalizeKeyPart(modelRaw);
+      if (!mkKey && !mdKey) return null;
+
+      var saved = migrateAndLoadSavedRuns();
+      for (var i = 0; i < saved.length; i++) {
+        var r = saved[i];
+        var rMk = normalizeKeyPart(r.make);
+        var rMd = normalizeKeyPart(r.model);
+        var rBbl = stripTrademarks(r.barrel);
+        if (!rBbl) continue;
+
+        var makeMatches = !mkKey || (rMk && rMk !== NOT_SPECIFIED.toLowerCase() && (rMk === mkKey || rMk.indexOf(mkKey) !== -1 || mkKey.indexOf(rMk) !== -1));
+        var modelMatches = !mdKey || (rMd && rMd !== NOT_SPECIFIED.toLowerCase() && (rMd === mdKey || rMd.indexOf(mdKey) !== -1 || mdKey.indexOf(rMd) !== -1));
+
+        if (makeMatches && modelMatches && (mkKey || mdKey)) {
+          return {
+            barrel: rBbl,
+            caliber: (r.caliber && r.caliber !== NOT_SPECIFIED) ? r.caliber : "",
+            sourceLabel: "Your Saved Run"
+          };
+        }
+      }
+      return null;
+    }
+
+    // Collects up to 3 unique prior barrel lengths saved under the same Make (only used if live lookup finds nothing).
+    function getScopedMakeChips(makeRaw) {
+      var mkKey = normalizeKeyPart(makeRaw);
+      if (!mkKey) return [];
+      var saved = migrateAndLoadSavedRuns();
+      var chips = [];
+      for (var i = 0; i < saved.length; i++) {
+        var r = saved[i];
+        var rMk = normalizeKeyPart(r.make);
+        var rBbl = stripTrademarks(r.barrel);
+        if (rBbl && rMk && (rMk === mkKey || rMk.indexOf(mkKey) !== -1 || mkKey.indexOf(rMk) !== -1)) {
+          if (chips.indexOf(rBbl) === -1) {
+            chips.push(rBbl);
+            if (chips.length >= 3) break;
+          }
+        }
+      }
+      return chips;
+    }
+
+    function extractAllInchesFromText(text) {
+      if (!text) return [];
+      var results = [];
+      var regex = /(\d+(?:\.\d+)?)\s*(?:in|inch(?:es)?)/gi;
+      var m;
+      while ((m = regex.exec(text)) !== null) {
+        var val = parseFloat(m[1]);
+        if (!isNaN(val) && val > 0 && val <= 60) {
+          var formatted = val + " in";
+          if (results.indexOf(formatted) === -1) {
+            results.push(formatted);
+          }
+        }
+      }
+      return results;
     }
 
     function extractCaliberFromText(text) {
@@ -659,82 +719,122 @@
       txt.textContent = labelText;
     }
 
+    // Tier 1 (Saved Runs) -> Tier 2 (Wikipedia Infobox Wikitext + Wikidata + Wikipedia Intro + DuckDuckGo)
     async function performLiveSpecLookup(makeRaw, modelRaw, onProgress) {
       var make = stripTrademarks(makeRaw);
       var model = stripTrademarks(modelRaw);
       if (!make && !model) return null;
 
+      if (onProgress) onProgress(18, "Checking saved runs...");
+      var savedHit = lookupSavedRunBarrel(make, model);
+      if (savedHit) {
+        if (onProgress) onProgress(100, "Complete");
+        return {
+          query: [make, model].filter(Boolean).join(" "),
+          barrels: [savedHit.barrel],
+          caliber: savedHit.caliber || "",
+          sourceUrl: "",
+          sourceLabel: savedHit.sourceLabel
+        };
+      }
+
       var searchModel = model.replace(/^g(\d+)/i, "Glock $1").replace(/mos/i, "").trim();
       var queryTerms = [make, searchModel].filter(Boolean).join(" ");
-      var foundBarrel = "";
+      var foundBarrels = [];
       var foundCaliber = "";
       var foundSource = "";
-      var foundSnippet = "";
+      var foundSourceLabel = "";
 
-      if (onProgress) onProgress(22, "Searching...");
+      if (onProgress) onProgress(32, "Searching wiki & infobox...");
 
-      // 1. Wikipedia Search API (supports browser CORS via origin=*)
       try {
         var wikiSearchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
-          encodeURIComponent(queryTerms) + "&format=json&origin=*&srlimit=3";
+          encodeURIComponent(queryTerms) + "&format=json&origin=*&srlimit=2";
         var sRes = await fetchWithTimeout(wikiSearchUrl, 3500);
-        if (onProgress) onProgress(52, "Parsing specs...");
+        if (onProgress) onProgress(55, "Reading infobox...");
         if (sRes.ok) {
           var sData = await sRes.json();
           var hits = (sData.query && sData.query.search) ? sData.query.search : [];
           for (var i = 0; i < hits.length; i++) {
             var title = hits[i].title;
-            var extUrl = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=" +
+            // Query both intro text and raw wikitext (to capture | part_length = and | cartridge = in infoboxes)
+            var revUrl = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts|revisions&exintro=1&explaintext=1&rvprop=content&rvslots=main&titles=" +
               encodeURIComponent(title) + "&format=json&origin=*";
-            var eRes = await fetchWithTimeout(extUrl, 3500);
-            if (eRes.ok) {
-              var eData = await eRes.json();
-              var pages = (eData.query && eData.query.pages) ? eData.query.pages : {};
+            var rRes = await fetchWithTimeout(revUrl, 3500);
+            if (rRes.ok) {
+              var rData = await rRes.json();
+              var pages = (rData.query && rData.query.pages) ? rData.query.pages : {};
               var pageKeys = Object.keys(pages);
               for (var p = 0; p < pageKeys.length; p++) {
-                var extract = pages[pageKeys[p]].extract || "";
-                var bbl = extractInchesFromText(extract);
-                var cal = extractCaliberFromText(extract);
-                if (bbl || cal) {
-                  if (!foundBarrel && bbl) foundBarrel = bbl;
+                var pageObj = pages[pageKeys[p]];
+                var extract = pageObj.extract || "";
+                var wikitext = "";
+                if (pageObj.revisions && pageObj.revisions[0] && pageObj.revisions[0].slots && pageObj.revisions[0].slots.main) {
+                  wikitext = pageObj.revisions[0].slots.main["*"] || "";
+                }
+                var infoboxMatch = wikitext.match(/\|\s*(?:part_length|barrel_length|length)\s*=\s*([^
+|]+)/i);
+                var combinedSpecText = (infoboxMatch ? infoboxMatch[1] + " " : "") + extract;
+
+                var bbls = extractAllInchesFromText(combinedSpecText);
+                var cal = extractCaliberFromText(wikitext + " " + extract);
+
+                if (bbls.length > 0 || cal) {
+                  for (var b = 0; b < bbls.length; b++) {
+                    if (foundBarrels.indexOf(bbls[b]) === -1) foundBarrels.push(bbls[b]);
+                  }
                   if (!foundCaliber && cal) foundCaliber = cal;
-                  if (!foundSource) foundSource = "https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_"));
-                  if (!foundSnippet) foundSnippet = extract;
+                  if (!foundSource) {
+                    foundSource = "https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_"));
+                    foundSourceLabel = infoboxMatch ? "Wikipedia Infobox" : "Wikipedia";
+                  }
                 }
               }
             }
-            if (foundBarrel) break;
+            if (foundBarrels.length > 0) break;
           }
         }
       } catch (e) {}
 
-      // 2. DuckDuckGo Instant Answer API fallback if barrel not found yet
-      if (!foundBarrel) {
-        if (onProgress) onProgress(78, "Checking web...");
+      // Wikidata API check if barrel still not found
+      if (foundBarrels.length === 0) {
+        if (onProgress) onProgress(76, "Checking Wikidata...");
         try {
-          var ddgUrl = "https://api.duckduckgo.com/?q=" + encodeURIComponent(queryTerms + " barrel length") + "&format=json&no_html=1&skip_disambig=1";
-          var ddgRes = await fetchWithTimeout(ddgUrl, 3500);
-          if (ddgRes.ok) {
-            var ddgData = await ddgRes.json();
-            var candidates = [];
-            if (ddgData.AbstractText) candidates.push({ text: ddgData.AbstractText, url: ddgData.AbstractURL || "" });
-            if (Array.isArray(ddgData.RelatedTopics)) {
-              for (var r = 0; r < ddgData.RelatedTopics.length; r++) {
-                if (ddgData.RelatedTopics[r] && ddgData.RelatedTopics[r].Text) {
-                  candidates.push({ text: ddgData.RelatedTopics[r].Text, url: ddgData.RelatedTopics[r].FirstURL || "" });
+          var wdSearchUrl = "https://www.wikidata.org/w/api.php?action=wbsearchentities&search=" +
+            encodeURIComponent(queryTerms) + "&language=en&format=json&origin=*&limit=2";
+          var wdRes = await fetchWithTimeout(wdSearchUrl, 3000);
+          if (wdRes.ok) {
+            var wdData = await wdRes.json();
+            var wdHits = Array.isArray(wdData.search) ? wdData.search : [];
+            for (var w = 0; w < wdHits.length; w++) {
+              var qid = wdHits[w].id;
+              var entUrl = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" +
+                encodeURIComponent(qid) + "&props=claims&format=json&origin=*";
+              var entRes = await fetchWithTimeout(entUrl, 3000);
+              if (entRes.ok) {
+                var entData = await entRes.json();
+                var claims = (entData.entities && entData.entities[qid] && entData.entities[qid].claims) ? entData.entities[qid].claims : {};
+                var p2043 = claims.P2043 || [];
+                for (var cIdx = 0; cIdx < p2043.length; cIdx++) {
+                  var snak = p2043[cIdx].mainsnak;
+                  var dv = snak && snak.datavalue && snak.datavalue.value;
+                  if (dv && typeof dv.amount === "string" && typeof dv.unit === "string") {
+                    var amt = Math.abs(parseFloat(dv.amount));
+                    if (!isNaN(amt) && amt > 0) {
+                      var inchVal = dv.unit.indexOf("Q174728") !== -1 ? (amt / 25.4) : amt;
+                      var roundedIn = (Math.round(inchVal * 100) / 100) + " in";
+                      if (inchVal > 0 && inchVal <= 60 && foundBarrels.indexOf(roundedIn) === -1) {
+                        foundBarrels.push(roundedIn);
+                        if (!foundSource) {
+                          foundSource = "https://www.wikidata.org/wiki/" + qid;
+                          foundSourceLabel = "Wikidata";
+                        }
+                      }
+                    }
+                  }
                 }
               }
-            }
-            for (var c = 0; c < candidates.length; c++) {
-              var bbl2 = extractInchesFromText(candidates[c].text);
-              var cal2 = extractCaliberFromText(candidates[c].text);
-              if (bbl2 || cal2) {
-                if (!foundBarrel && bbl2) foundBarrel = bbl2;
-                if (!foundCaliber && cal2) foundCaliber = cal2;
-                if (!foundSource) foundSource = candidates[c].url || ddgUrl;
-                if (!foundSnippet) foundSnippet = candidates[c].text;
-                if (foundBarrel) break;
-              }
+              if (foundBarrels.length > 0) break;
             }
           }
         } catch (e2) {}
@@ -744,10 +844,10 @@
 
       return {
         query: queryTerms,
-        barrel: foundBarrel || "",
+        barrels: foundBarrels,
         caliber: foundCaliber || "",
         sourceUrl: foundSource || "",
-        snippet: foundSnippet || ""
+        sourceLabel: foundSourceLabel || ""
       };
     }
 
@@ -807,14 +907,14 @@
           title: "Enter Make or Model First",
           reason: "Type a firearm Make and Model (for example, Glock and G47 MOS) before tapping Go / Lookup.",
           example: "Glock / G47 MOS",
-          chips: ["G47 MOS", "M&P9 Shield Plus Carry Comp"]
+          chips: []
         });
         return;
       }
 
       var labelStr = [makeVal, modelVal].filter(Boolean).join(" ");
       setGoProgress(10, "Starting...", true);
-      statusEl.textContent = "Lookup active for " + labelStr + " — querying live sources...";
+      statusEl.textContent = "Lookup active for " + labelStr + " — checking saved runs and live sources...";
 
       var res = await performLiveSpecLookup(makeVal, modelVal, function(pct, phaseLabel) {
         setGoProgress(pct, phaseLabel, true);
@@ -827,13 +927,16 @@
         calEl.classList.add("autofilled");
       }
 
-      if (res && res.barrel) {
-        brlEl.value = res.barrel;
+      var existingManualBarrel = stripTrademarks(brlEl.value);
+
+      if (res && res.barrels && res.barrels.length === 1) {
+        var singleBbl = res.barrels[0];
+        brlEl.value = singleBbl;
         brlEl.classList.add("autofilled");
         clearProblem("barrelInput");
-        hintEl.textContent = "Verified from live lookup: " + res.barrel;
+        hintEl.textContent = (res.sourceLabel ? (res.sourceLabel + ": ") : "Verified: ") + singleBbl;
         statusEl.textContent = "";
-        statusEl.appendChild(document.createTextNode("Lookup complete (100%) — verified " + res.barrel + ". "));
+        statusEl.appendChild(document.createTextNode("Lookup complete (100%) — verified " + singleBbl + (res.sourceLabel ? (" (" + res.sourceLabel + ")") : "") + ". "));
         if (res.sourceUrl) {
           var a = document.createElement("a");
           a.className = "source-link";
@@ -850,34 +953,37 @@
         renderTables(previewRun);
         lookupCompletedForCurrentInputs = true;
         setSaveEnabled(true);
+      } else if (res && res.barrels && res.barrels.length > 1) {
+        renderBarrelRequiredState(makeVal, modelVal, normalizeCaliber(calEl.value), res.sourceUrl);
+        openGuidanceModal({
+          fieldId: "barrelInput",
+          title: "Select Model Barrel Length or Enter True Value",
+          reason: "Multiple barrel lengths appeared in source specs for '" + labelStr + "'. Choose one from this model's published lengths or enter your exact barrel length directly.",
+          example: res.barrels[0],
+          chips: res.barrels.slice(0, 4)
+        });
+      } else if (existingManualBarrel) {
+        brlEl.classList.remove("autofilled");
+        clearProblem("barrelInput");
+        hintEl.textContent = "Using entered barrel length: " + existingManualBarrel;
+        statusEl.textContent = "Lookup complete (100%) — using your entered barrel length (" + existingManualBarrel + "). Matrices populated; tap Save Run when ready.";
+        tryPopulateReadyMatrices();
       } else {
-        var existingManualBarrel = stripTrademarks(brlEl.value);
-        if (existingManualBarrel) {
-          brlEl.classList.remove("autofilled");
-          clearProblem("barrelInput");
-          hintEl.textContent = "Using entered barrel length: " + existingManualBarrel;
-          statusEl.textContent = "Lookup complete (100%) — using your entered barrel length (" + existingManualBarrel + "). Matrices populated; tap Save Run when ready.";
-          tryPopulateReadyMatrices();
-        } else {
-          brlEl.classList.remove("autofilled");
-          hintEl.textContent = "Required before ammo populates — enter barrel length manually";
-          statusEl.textContent = "Lookup complete (100%) — no verified barrel length returned. Enter Barrel Length manually before ammo populates.";
+        brlEl.classList.remove("autofilled");
+        hintEl.textContent = "Required before ammo populates — enter barrel length manually";
+        statusEl.textContent = "Lookup complete (100%) — no verified barrel length returned. Enter Barrel Length manually before ammo populates.";
 
-          renderBarrelRequiredState(
-            makeVal,
-            modelVal,
-            normalizeCaliber(calEl.value),
-            res ? res.sourceUrl : ""
-          );
+        renderBarrelRequiredState(makeVal, modelVal, normalizeCaliber(calEl.value), "");
 
-          openGuidanceModal({
-            fieldId: "barrelInput",
-            title: "Barrel Length Required Before Populating Ammo",
-            reason: "No verified barrel length was returned by live lookup for '" + labelStr + "'. Enter your known barrel length below (e.g., 4.7 in) or choose a preset before ammo matrices populate.",
-            example: "4.7 in or 4.49 in",
-            chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
-          });
-        }
+        // Tier 3: Only prior barrel lengths saved under the same Make (max 3), never unrelated global chips.
+        var makeChips = getScopedMakeChips(makeVal);
+        openGuidanceModal({
+          fieldId: "barrelInput",
+          title: "Barrel Length Required Before Populating Ammo",
+          reason: "No verified barrel length was found for '" + labelStr + "'. Enter the true barrel length directly below before ammo matrices populate.",
+          example: "4.7 in",
+          chips: makeChips
+        });
       }
 
       setTimeout(function() {
@@ -922,7 +1028,7 @@
       highlightField(opts.fieldId);
       document.getElementById("modalTitle").textContent = opts.title;
       document.getElementById("modalReason").textContent = opts.reason;
-      document.getElementById("modalExample").textContent = opts.example ? ("Helpful format example: " + opts.example) : "";
+      document.getElementById("modalExample").textContent = opts.example ? ("Example format: " + opts.example) : "";
 
       var manualInput = document.getElementById("modalManualInput");
       if (manualInput) {
@@ -1053,7 +1159,7 @@
       setSaveEnabled(false);
       setGoProgress(0, "Go / Lookup", false);
       document.getElementById("liveLookupStatus").textContent =
-        "Inputs updated — tap Go / Lookup to research & populate before Save Run unlocks.";
+        "Inputs updated — tap Go / Lookup to check saved runs & live sources before Save Run unlocks.";
     }
 
     function handleFieldInput(field) {
@@ -1265,8 +1371,8 @@
           fieldId: "barrelInput",
           title: "Barrel Length Required Before Saving",
           reason: "Barrel length is a rigid prerequisite before ammo matrices can populate or a run can be saved. Enter barrel length manually first.",
-          example: "4.49 in",
-          chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
+          example: "4.7 in",
+          chips: getScopedMakeChips(run.make)
         });
         return;
       }
@@ -1304,9 +1410,9 @@
       ["makeInput", "modelInput", "caliberInput", "barrelInput", "roundCountInput", "alteredDetails"]
         .forEach(function(id) { document.getElementById(id).value = ""; });
       document.getElementById("barrelInput").classList.remove("autofilled");
-      document.getElementById("barrelHint").textContent = "Blank unless verified by live lookup or entered manually";
+      document.getElementById("barrelHint").textContent = "Blank unless verified by saved run, live lookup, or manual entry";
       document.getElementById("liveLookupStatus").textContent =
-        "Step 1: Enter Make & Model, then tap Go / Lookup to auto-populate specs before Save Run unlocks.";
+        "Step 1: Enter Make & Model, then tap Go / Lookup to check saved runs and live sources.";
       document.getElementById("stateSelect").value = "Factory";
       toggleAltered();
       setInputsDisabled(false);
