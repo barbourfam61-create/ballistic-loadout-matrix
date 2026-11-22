@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.1)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.2)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
@@ -287,6 +287,9 @@
           <select id="profileSelect" onchange="loadSelectedProfile()">
             <option value="">-- Choose a Profile or Saved Run --</option>
           </select>
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+          <button id="deleteRunBtn" class="warn" type="button" onclick="promptDeleteSelectedRun()" disabled>Delete Run</button>
         </div>
       </div>
     </div>
@@ -397,6 +400,17 @@
     </div>
   </div>
 
+  <div id="deleteConfirmModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="modal-card">
+      <h3 id="deleteModalTitle">Confirm Run Deletion</h3>
+      <p id="deleteModalReason"></p>
+      <div class="modal-actions">
+        <button type="button" onclick="closeDeleteModal()">Cancel</button>
+        <button id="verifyDeleteBtn" class="warn" type="button" onclick="confirmPendingDelete()">Verify Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     var MASTER_STORAGE_KEY = "ballistic_loadout_runs_master";
     var NOT_SPECIFIED = "Not specified";
@@ -404,6 +418,103 @@
     var lastProblemFieldId = null;
     var lastLookupResult = null;
     var lookupCompletedForCurrentInputs = false;
+    var pendingDeleteAction = null;
+
+    function parseNumericInches(rawBarrel) {
+      var s = stripTrademarks(rawBarrel).toLowerCase();
+      if (!s) return null;
+      var m = s.match(/^(\d+(?:\.\d+)?)\s*(?:in|inch|inches|")?$/);
+      if (!m) return null;
+      var val = parseFloat(m[1]);
+      if (isNaN(val) || val <= 0 || val > 60) return null;
+      return val;
+    }
+
+    function isBarrelAllowedForCurrentModel(rawBarrel) {
+      var num = parseNumericInches(rawBarrel);
+      if (num === null) return { ok: false, reason: "Enter a valid positive barrel length (for example, 4.49 in or 4.7 in)." };
+
+      var verifiedList = (lastLookupResult && Array.isArray(lastLookupResult.barrels) && lastLookupResult.barrels.length > 0 && lastLookupResult.sourceLabel !== "Your Saved Run")
+        ? lastLookupResult.barrels
+        : [];
+
+      if (verifiedList.length > 0) {
+        var matchedAny = false;
+        for (var i = 0; i < verifiedList.length; i++) {
+          var vNum = parseNumericInches(verifiedList[i]);
+          if (vNum !== null && Math.abs(vNum - num) < 0.015) {
+            matchedAny = true;
+            break;
+          }
+        }
+        if (!matchedAny) {
+          return {
+            ok: false,
+            reason: "Barrel length '" + stripTrademarks(rawBarrel) + "' does not match the verified barrel length(s) returned for this model (" + verifiedList.join(", ") + "). Unverified conflicting barrel lengths are blocked."
+          };
+        }
+      }
+      return { ok: true, normalized: num + " in" };
+    }
+
+    function updateDeleteButtonState() {
+      var btn = document.getElementById("deleteRunBtn");
+      var sel = document.getElementById("profileSelect");
+      if (!btn || !sel) return;
+      var val = sel.value || "";
+      var saved = migrateAndLoadSavedRuns();
+      var isSavedRun = false;
+      for (var i = 0; i < saved.length; i++) {
+        if (saved[i].id === val) { isSavedRun = true; break; }
+      }
+      btn.disabled = !isSavedRun;
+    }
+
+    function openDeleteConfirmModal(messageText, onConfirmed) {
+      pendingDeleteAction = onConfirmed;
+      document.getElementById("deleteModalReason").textContent = messageText;
+      document.getElementById("deleteConfirmModal").classList.add("open");
+    }
+
+    function closeDeleteModal() {
+      pendingDeleteAction = null;
+      document.getElementById("deleteConfirmModal").classList.remove("open");
+    }
+
+    function confirmPendingDelete() {
+      var fn = pendingDeleteAction;
+      closeDeleteModal();
+      if (typeof fn === "function") fn();
+    }
+
+    function deleteRunById(runId) {
+      var saved = migrateAndLoadSavedRuns();
+      var filtered = [];
+      for (var i = 0; i < saved.length; i++) {
+        if (saved[i].id !== runId) filtered.push(saved[i]);
+      }
+      saveMasterRuns(filtered);
+      refreshDropdown("");
+      resetForm();
+      document.getElementById("liveLookupStatus").textContent = "Saved run deleted from repository.";
+    }
+
+    function promptDeleteSelectedRun() {
+      var sel = document.getElementById("profileSelect");
+      if (!sel || !sel.value) return;
+      var runId = sel.value;
+      var saved = migrateAndLoadSavedRuns();
+      var targetRun = null;
+      for (var i = 0; i < saved.length; i++) {
+        if (saved[i].id === runId) { targetRun = saved[i]; break; }
+      }
+      if (!targetRun) return;
+
+      openDeleteConfirmModal(
+        "Delete saved run '" + targetRun.label + "' from your repository? Tap Verify Delete to permanently remove it.",
+        function() { deleteRunById(runId); }
+      );
+    }
 
     var SUGGESTIONS = {
       make: ["Glock", "Smith & Wesson", "SIG Sauer", "Ruger", "Springfield Armory", "HK", "CZ", "FN America"],
@@ -883,12 +994,21 @@
         return false;
       }
 
+      var check = isBarrelAllowedForCurrentModel(brlVal);
+      if (!check.ok) {
+        setSaveEnabled(false);
+        highlightField("barrelInput");
+        renderBarrelRequiredState(makeVal, modelVal, calVal, srcUrl);
+        document.getElementById("liveLookupStatus").textContent = check.reason;
+        return false;
+      }
+
       var previewRun = buildRunObjectFromForm();
       renderTables(previewRun);
       lookupCompletedForCurrentInputs = true;
       setSaveEnabled(true);
       document.getElementById("liveLookupStatus").textContent =
-        "Barrel length set (" + brlVal + ") — load matrices populated. Tap Save Run when ready.";
+        "Barrel length verified (" + brlVal + ") — load matrices populated. Tap Save Run when ready.";
       return true;
     }
 
@@ -952,6 +1072,35 @@
         renderTables(previewRun);
         lookupCompletedForCurrentInputs = true;
         setSaveEnabled(true);
+
+        var singleNum = parseNumericInches(singleBbl);
+        var savedRunsNow = migrateAndLoadSavedRuns();
+        var conflictRun = null;
+        for (var cr = 0; cr < savedRunsNow.length; cr++) {
+          var sr = savedRunsNow[cr];
+          var sameMk = normalizeKeyPart(sr.make) === normalizeKeyPart(makeVal);
+          var sameMd = normalizeKeyPart(sr.model) === normalizeKeyPart(modelVal);
+          var srNum = parseNumericInches(sr.barrel);
+          if (sameMk && sameMd && singleNum !== null && srNum !== null && Math.abs(singleNum - srNum) >= 0.015) {
+            conflictRun = sr;
+            break;
+          }
+        }
+        if (conflictRun) {
+          openDeleteConfirmModal(
+            "Verified lookup returned " + singleBbl + " for " + labelStr + ", which conflicts with saved run '" + conflictRun.label + "' (" + conflictRun.barrel + "). Delete that conflicting saved run?",
+            function() {
+              deleteRunById(conflictRun.id);
+              document.getElementById("makeInput").value = makeVal;
+              document.getElementById("modelInput").value = modelVal;
+              if (calEl.value) calEl.value = calEl.value;
+              brlEl.value = singleBbl;
+              brlEl.classList.add("autofilled");
+              renderTables(buildRunObjectFromForm());
+              setSaveEnabled(true);
+            }
+          );
+        }
       } else if (res && res.barrels && res.barrels.length > 1) {
         renderBarrelRequiredState(makeVal, modelVal, normalizeCaliber(calEl.value), res.sourceUrl);
         openGuidanceModal({
@@ -1106,6 +1255,7 @@
       select.appendChild(builtinGroup);
 
       if (selectedId) select.value = selectedId;
+      updateDeleteButtonState();
     }
 
     function showSuggestions(field) {
@@ -1370,8 +1520,21 @@
           fieldId: "barrelInput",
           title: "Barrel Length Required Before Saving",
           reason: "Barrel length is a rigid prerequisite before ammo matrices can populate or a run can be saved. Enter barrel length manually first.",
-          example: "4.7 in",
+          example: "4.49 in",
           chips: getScopedMakeChips(run.make)
+        });
+        return;
+      }
+
+      var barrelCheck = isBarrelAllowedForCurrentModel(run.barrel);
+      if (!barrelCheck.ok) {
+        renderBarrelRequiredState(run.make, run.model, run.caliber, run.sourceUrl);
+        openGuidanceModal({
+          fieldId: "barrelInput",
+          title: "Unverified Barrel Length Blocked",
+          reason: barrelCheck.reason,
+          example: (lastLookupResult && lastLookupResult.barrels && lastLookupResult.barrels[0]) ? lastLookupResult.barrels[0] : "4.49 in",
+          chips: (lastLookupResult && Array.isArray(lastLookupResult.barrels)) ? lastLookupResult.barrels.slice(0, 4) : []
         });
         return;
       }
