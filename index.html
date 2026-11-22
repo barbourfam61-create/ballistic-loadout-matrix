@@ -274,9 +274,9 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.2)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.3)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
-      <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. Verified specs and load matrices populate before <strong>Save Run</strong> unlocks.</p>
+      <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks</strong>—if live lookup leaves it blank, enter barrel length manually first.</p>
     </div>
 
     <div class="card no-print">
@@ -746,6 +746,43 @@
       if (btn) btn.disabled = !enabled;
     }
 
+    function renderBarrelRequiredState(makeVal, modelVal, calVal, sourceUrl) {
+      var mk = makeVal || NOT_SPECIFIED;
+      var md = modelVal || NOT_SPECIFIED;
+      var cal = calVal || NOT_SPECIFIED;
+      var srcPart = sourceUrl ? (" | Source: " + sourceUrl) : "";
+
+      setSaveEnabled(false);
+      document.getElementById("auditTitle").textContent = mk + " | " + md + " (" + cal + ") — Barrel Length Required";
+      document.getElementById("auditBody").textContent =
+        "Barrel length is a required predetermination before ammo matrices populate or Save Run unlocks. Enter Barrel Length manually to continue." + srcPart;
+
+      var waitingMsg = "Enter Barrel Length first to populate verified load matrices.";
+      renderLoadCards("defenseBody", [["1-10", "Barrel length required", "-", "-", "-", waitingMsg]], "10% Gel & Reasoning");
+      renderLoadCards("targetBody", [["1-10", "Barrel length required", "-", "-", "-", waitingMsg]], "Pairing Match & Reasoning");
+    }
+
+    function tryPopulateReadyMatrices() {
+      var makeVal = stripTrademarks(document.getElementById("makeInput").value);
+      var modelVal = stripTrademarks(document.getElementById("modelInput").value);
+      var calVal = normalizeCaliber(document.getElementById("caliberInput").value);
+      var brlVal = stripTrademarks(document.getElementById("barrelInput").value);
+      var srcUrl = lastLookupResult ? lastLookupResult.sourceUrl : "";
+
+      if (!brlVal) {
+        renderBarrelRequiredState(makeVal, modelVal, calVal, srcUrl);
+        return false;
+      }
+
+      var previewRun = buildRunObjectFromForm();
+      renderTables(previewRun);
+      lookupCompletedForCurrentInputs = true;
+      setSaveEnabled(true);
+      document.getElementById("liveLookupStatus").textContent =
+        "Barrel length set (" + brlVal + ") — load matrices populated. Tap Save Run when ready.";
+      return true;
+    }
+
     async function runGoLookup() {
       var makeVal = stripTrademarks(document.getElementById("makeInput").value);
       var modelVal = stripTrademarks(document.getElementById("modelInput").value);
@@ -783,6 +820,7 @@
       if (res && res.barrel) {
         brlEl.value = res.barrel;
         brlEl.classList.add("autofilled");
+        clearProblem("barrelInput");
         hintEl.textContent = "Verified from live lookup: " + res.barrel;
         statusEl.textContent = "";
         statusEl.appendChild(document.createTextNode("Lookup complete (100%) — verified " + res.barrel + ". "));
@@ -796,20 +834,34 @@
           statusEl.appendChild(a);
           statusEl.appendChild(document.createTextNode(" — "));
         }
-        statusEl.appendChild(document.createTextNode("Review below and tap Save Run."));
+        statusEl.appendChild(document.createTextNode("Matrices populated; tap Save Run when ready."));
+
+        var previewRun = buildRunObjectFromForm();
+        renderTables(previewRun);
+        lookupCompletedForCurrentInputs = true;
+        setSaveEnabled(true);
       } else {
         if (!brlEl.value.trim()) {
           brlEl.classList.remove("autofilled");
-          hintEl.textContent = "No verified barrel length found in live lookup — left blank";
+          hintEl.textContent = "Required before ammo populates — enter barrel length manually";
         }
-        statusEl.textContent = "Lookup complete (100%) — no verified barrel inch measurement returned (left blank). Review below and tap Save Run.";
+        statusEl.textContent = "Lookup complete (100%) — no verified barrel length returned. Enter Barrel Length manually before ammo populates.";
+
+        renderBarrelRequiredState(
+          makeVal,
+          modelVal,
+          normalizeCaliber(calEl.value),
+          res ? res.sourceUrl : ""
+        );
+
+        openGuidanceModal({
+          fieldId: "barrelInput",
+          title: "Barrel Length Required Before Populating Ammo",
+          reason: "No verified barrel length was returned by live lookup for "" + labelStr + "". Enter the barrel length manually in the highlighted Barrel Length field before ammo matrices populate or Save Run unlocks.",
+          example: "4.49 in",
+          chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
+        });
       }
-
-      var previewRun = buildRunObjectFromForm();
-      renderTables(previewRun);
-
-      lookupCompletedForCurrentInputs = true;
-      setSaveEnabled(true);
 
       setTimeout(function() {
         setGoProgress(0, "Go / Lookup", false);
@@ -957,13 +1009,34 @@
       var map = { make: "makeInput", model: "modelInput", caliber: "caliberInput", barrel: "barrelInput", roundCount: "roundCountInput" };
       clearProblem(map[field]);
       if (field === "barrel") {
-        document.getElementById("barrelInput").classList.remove("autofilled");
-      }
-      if (field === "make" || field === "model") {
+        var brlEl = document.getElementById("barrelInput");
+        brlEl.classList.remove("autofilled");
+        var bVal = stripTrademarks(brlEl.value);
+        document.getElementById("barrelHint").textContent = bVal
+          ? ("Manual barrel length entered: " + bVal)
+          : "Required before ammo populates — enter barrel length manually or via Go / Lookup";
+        if (bVal) {
+          tryPopulateReadyMatrices();
+        } else {
+          renderBarrelRequiredState(
+            stripTrademarks(document.getElementById("makeInput").value),
+            stripTrademarks(document.getElementById("modelInput").value),
+            normalizeCaliber(document.getElementById("caliberInput").value),
+            lastLookupResult ? lastLookupResult.sourceUrl : ""
+          );
+        }
+      } else if (field === "make" || field === "model") {
         markInputsDirty();
-      } else if (field === "caliber" && stripTrademarks(document.getElementById("caliberInput").value)) {
-        renderTables(buildRunObjectFromForm());
-        setSaveEnabled(true);
+        renderBarrelRequiredState(
+          stripTrademarks(document.getElementById("makeInput").value),
+          stripTrademarks(document.getElementById("modelInput").value),
+          normalizeCaliber(document.getElementById("caliberInput").value),
+          ""
+        );
+      } else if (field === "caliber") {
+        if (stripTrademarks(document.getElementById("barrelInput").value)) {
+          tryPopulateReadyMatrices();
+        }
       }
       showSuggestions(field);
     }
@@ -1131,6 +1204,18 @@
           reason: "You selected Altered, so noting what changed helps evaluate slide cycling.",
           example: "22 lb recoil spring or factory pin/spring",
           chips: ["22 lb recoil spring", "Factory spring, part swap"]
+        });
+        return;
+      }
+
+      if (!run.barrel) {
+        renderBarrelRequiredState(run.make, run.model, run.caliber, run.sourceUrl);
+        openGuidanceModal({
+          fieldId: "barrelInput",
+          title: "Barrel Length Required Before Saving",
+          reason: "Barrel length is a rigid prerequisite before ammo matrices can populate or a run can be saved. Enter barrel length manually first.",
+          example: "4.49 in",
+          chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
         });
         return;
       }
