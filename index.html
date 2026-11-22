@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.0)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.1)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
@@ -772,8 +772,7 @@
                 if (pageObj.revisions && pageObj.revisions[0] && pageObj.revisions[0].slots && pageObj.revisions[0].slots.main) {
                   wikitext = pageObj.revisions[0].slots.main["*"] || "";
                 }
-                var infoboxMatch = wikitext.match(/\|\s*(?:part_length|barrel_length|length)\s*=\s*([^
-|]+)/i);
+                var infoboxMatch = wikitext.match(/\|\s*(?:part_length|barrel_length|length)\s*=\s*([^\n|]+)/i);
                 var combinedSpecText = (infoboxMatch ? infoboxMatch[1] + " " : "") + extract;
 
                 var bbls = extractAllInchesFromText(combinedSpecText);
