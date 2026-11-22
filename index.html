@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.7)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.8)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
@@ -947,7 +947,7 @@
 
                 // Also detect explicit variant forms of the searched model in the retrieved text (e.g. "Security-9 Compact")
                 if (searchModel) {
-                  var varRegex = new RegExp("\b" + searchModel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\s+(?:Compact|Subcompact|Micro|Tactical|Carry|Long\s+Slide|Performance\s+Center|MOS|Pro)\b", "gi");
+                  var varRegex = new RegExp("\\b" + searchModel.replace(/[.*+?^${}()|[\]\\]/g, "\\\\$&") + "\\s+(?:Compact|Subcompact|Micro|Tactical|Carry|Long\\s+Slide|Performance\\s+Center|MOS|Pro)\\b", "gi");
                   var vm;
                   while ((vm = varRegex.exec(combinedSpecText)) !== null) {
                     var vName = stripTrademarks(vm[0]);
