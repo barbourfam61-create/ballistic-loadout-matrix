@@ -219,7 +219,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v5.0 — Live Lookup)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v5.1 — Live Lookup)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>Real-Time Lookup Policy:</strong> No hardcoded model-to-barrel lookup table is used. When Make and Model are entered, the app queries public web/manufacturer lookup sources live on the spot and only fills Barrel Length when an inch measurement is found in a retrieved source—otherwise it stays blank.</p>
     </div>
@@ -329,7 +329,7 @@
   </div>
 
   <script>
-    var STORAGE_KEY = "ballistic_loadout_runs_v50";
+    var STORAGE_KEY = "ballistic_loadout_runs_v51";
     var PENDING_NOTE = "Box/lot data pending";
     var UNKNOWN_BARREL_NOTE = "Barrel length unverified (left blank)";
     var lastProblemFieldId = null;
@@ -395,8 +395,7 @@
       return val + " in";
     }
 
-    // Performs real-time lookup on the spot using public search endpoints (DuckDuckGo Instant Answer API + Wikipedia REST summary).
-    // Never uses a static local model-to-barrel lookup table.
+    // Performs real-time lookup on the spot using public search endpoints (Wikipedia REST summary + DuckDuckGo Instant Answer API).
     async function performLiveSpecLookup(makeRaw, modelRaw) {
       var make = stripTrademarks(makeRaw);
       var model = stripTrademarks(modelRaw);
@@ -407,7 +406,6 @@
       var foundSource = "";
       var foundSummary = "";
 
-      // 1. Try Wikipedia REST summary first for clean structured spec text
       var wikiTitle = encodeURIComponent([make, model].filter(Boolean).join(" "));
       try {
         var wikiRes = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + wikiTitle, {
@@ -425,11 +423,8 @@
             foundSummary = extract;
           }
         }
-      } catch (e) {
-        // Ignore network/CORS error and try next endpoint
-      }
+      } catch (e) {}
 
-      // 2. Query DuckDuckGo Instant Answer JSON API for live web/manufacturer snippets
       if (!foundBarrel) {
         try {
           var ddgUrl = "https://api.duckduckgo.com/?q=" + encodeURIComponent(queryText) + "&format=json&no_html=1&skip_disambig=1";
@@ -458,9 +453,7 @@
               }
             }
           }
-        } catch (e2) {
-          // Network or CORS blocked in browser environment
-        }
+        } catch (e2) {}
       }
 
       return {
@@ -490,7 +483,8 @@
           return;
         }
 
-        statusEl.textContent = "Running real-time lookup for "" + [stripTrademarks(makeVal), stripTrademarks(modelVal)].filter(Boolean).join(" ") + ""...";
+        var combinedQuery = [stripTrademarks(makeVal), stripTrademarks(modelVal)].filter(Boolean).join(" ");
+        statusEl.textContent = 'Running real-time lookup for "' + combinedQuery + '"...';
         var res = await performLiveSpecLookup(makeVal, modelVal);
         lastLookupResult = res;
 
@@ -500,11 +494,12 @@
           hintEl.textContent = "Verified from real-time lookup: " + res.barrel;
           statusEl.innerHTML = "Live lookup verified <strong>" + res.barrel + "</strong>" +
             (res.sourceUrl ? (' — Source: <a class="source-link" href="' + res.sourceUrl + '" target="_blank" rel="noopener">' + res.sourceUrl + "</a>") : "");
-        } else {
-          brlEl.value = "";
+        } else if (!brlEl.value.trim()) {
           brlEl.classList.remove("autofilled");
           hintEl.textContent = "No verified barrel length returned in live lookup — left blank";
           statusEl.textContent = "Live lookup completed with no verified barrel inch measurement returned (left blank).";
+        } else {
+          statusEl.textContent = "Live lookup completed (no auto-override needed; entered barrel length kept).";
         }
       }, 350);
     }
@@ -807,14 +802,14 @@
       var ammoPack = AMMO_BY_CALIBER[caliber] || null;
       var audit = ammoPack
         ? ("Real-time lookup mode active (no static lookup table). Factory velocity figures shown are manufacturer test-barrel ratings; verify chronograph/SD per lot and barrel.")
-        : ("No verified load matrix loaded for caliber "" + caliber + "" (" + PENDING_NOTE + ").");
+        : ('No verified load matrix loaded for caliber "' + caliber + '" (' + PENDING_NOTE + ').');
 
       var defense = ammoPack
         ? ammoPack.defense
-        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, "No verified 10% organic gel + heavy denim load data for "" + caliber + "" (" + PENDING_NOTE + ")."]];
+        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, 'No verified 10% organic gel + heavy denim load data for "' + caliber + '" (' + PENDING_NOTE + ').']];
       var target = ammoPack
         ? ammoPack.target
-        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, "No verified matched target load data for "" + caliber + "" (" + PENDING_NOTE + ")."]];
+        : [["1-10", PENDING_NOTE, "-", PENDING_NOTE, PENDING_NOTE, 'No verified matched target load data for "' + caliber + '" (' + PENDING_NOTE + ').']];
 
       var newRun = {
         id: "saved-" + Date.now(),
