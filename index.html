@@ -113,14 +113,12 @@
       opacity: 0.48;
       cursor: not-allowed;
     }
-
-    /* Animated Go / Lookup button with left-to-right calibrated progress fill & spinner */
     button.go-btn {
       position: relative;
       overflow: hidden;
       background: #0369a1;
       border-color: #0284c7;
-      min-width: 146px;
+      min-width: 152px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -140,7 +138,7 @@
       bottom: 0;
       width: 0%;
       background: linear-gradient(90deg, rgba(14, 165, 233, 0.45), rgba(56, 189, 248, 0.72));
-      transition: width 0.28s ease-out;
+      transition: width 0.25s ease-out;
       pointer-events: none;
       z-index: 1;
     }
@@ -166,7 +164,6 @@
     @keyframes spinTail {
       to { transform: rotate(360deg); }
     }
-
     button.primary { background: #0284c7; border-color: #0369a1; }
     button.success { background: #15803d; border-color: #166534; }
     button.warn { background: #b45309; border-color: #92400e; }
@@ -277,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.1)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.2)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. Verified specs and load matrices populate before <strong>Save Run</strong> unlocks.</p>
     </div>
@@ -652,7 +649,6 @@
       txt.textContent = labelText;
     }
 
-    // Real-time search across Wikipedia Search + Extract API (origin=*) and DuckDuckGo API with calibrated progress updates.
     async function performLiveSpecLookup(makeRaw, modelRaw, onProgress) {
       var make = stripTrademarks(makeRaw);
       var model = stripTrademarks(modelRaw);
@@ -788,9 +784,19 @@
         brlEl.value = res.barrel;
         brlEl.classList.add("autofilled");
         hintEl.textContent = "Verified from live lookup: " + res.barrel;
-        statusEl.innerHTML = "Lookup complete (100%) — verified <strong>" + res.barrel + "</strong>" +
-          (res.sourceUrl ? (" (<a class="source-link" href="" + res.sourceUrl + "" target="_blank" rel="noopener">Source</a>)") : "") +
-          ". Review below and tap <strong>Save Run</strong>.";
+        statusEl.textContent = "";
+        statusEl.appendChild(document.createTextNode("Lookup complete (100%) — verified " + res.barrel + ". "));
+        if (res.sourceUrl) {
+          var a = document.createElement("a");
+          a.className = "source-link";
+          a.href = res.sourceUrl;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Source";
+          statusEl.appendChild(a);
+          statusEl.appendChild(document.createTextNode(" — "));
+        }
+        statusEl.appendChild(document.createTextNode("Review below and tap Save Run."));
       } else {
         if (!brlEl.value.trim()) {
           brlEl.classList.remove("autofilled");
@@ -867,7 +873,7 @@
     function refreshDropdown(selectedId) {
       var select = document.getElementById("profileSelect");
       var saved = migrateAndLoadSavedRuns();
-      select.innerHTML = "<option value="">-- Choose a Profile or Saved Run --</option>";
+      select.innerHTML = "<option value=''>-- Choose a Profile or Saved Run --</option>";
 
       if (saved.length > 0) {
         var savedGroup = document.createElement("optgroup");
