@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.4)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v6.5)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>Workflow:</strong> Enter Make and Model, then tap <strong>Go / Lookup</strong> to run a real-time web lookup with live progress tracking. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks</strong>—if live lookup leaves it blank, enter barrel length manually first.</p>
     </div>
@@ -382,10 +382,17 @@
       <h3 id="modalTitle">Input Guidance &amp; Suggestions</h3>
       <p id="modalReason"></p>
       <p id="modalExample" style="color: #93c5fd; font-size: 0.85rem;"></p>
+      <div id="modalManualWrap" style="margin: 10px 0;">
+        <label for="modalManualInput" style="color: #fde68a; font-weight: 600;">Enter True Value Directly:</label>
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+          <input id="modalManualInput" type="text" autocomplete="off" placeholder="e.g., 4.7 in" style="flex: 1;" />
+          <button class="success" type="button" onclick="applyModalManualValue()">Apply</button>
+        </div>
+      </div>
       <div id="modalChips" class="chip-row"></div>
       <div class="modal-actions">
-        <button type="button" onclick="closeGuidanceModal()">Keep My Entry</button>
-        <button class="primary" type="button" onclick="focusProblemField()">Fix Highlighted Field</button>
+        <button type="button" onclick="closeGuidanceModal()">Cancel / Close</button>
+        <button class="primary" type="button" onclick="focusProblemField()">Edit on Main Form</button>
       </div>
     </div>
   </div>
@@ -844,26 +851,33 @@
         lookupCompletedForCurrentInputs = true;
         setSaveEnabled(true);
       } else {
-        if (!brlEl.value.trim()) {
+        var existingManualBarrel = stripTrademarks(brlEl.value);
+        if (existingManualBarrel) {
+          brlEl.classList.remove("autofilled");
+          clearProblem("barrelInput");
+          hintEl.textContent = "Using entered barrel length: " + existingManualBarrel;
+          statusEl.textContent = "Lookup complete (100%) — using your entered barrel length (" + existingManualBarrel + "). Matrices populated; tap Save Run when ready.";
+          tryPopulateReadyMatrices();
+        } else {
           brlEl.classList.remove("autofilled");
           hintEl.textContent = "Required before ammo populates — enter barrel length manually";
+          statusEl.textContent = "Lookup complete (100%) — no verified barrel length returned. Enter Barrel Length manually before ammo populates.";
+
+          renderBarrelRequiredState(
+            makeVal,
+            modelVal,
+            normalizeCaliber(calEl.value),
+            res ? res.sourceUrl : ""
+          );
+
+          openGuidanceModal({
+            fieldId: "barrelInput",
+            title: "Barrel Length Required Before Populating Ammo",
+            reason: "No verified barrel length was returned by live lookup for '" + labelStr + "'. Enter your known barrel length below (e.g., 4.7 in) or choose a preset before ammo matrices populate.",
+            example: "4.7 in or 4.49 in",
+            chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
+          });
         }
-        statusEl.textContent = "Lookup complete (100%) — no verified barrel length returned. Enter Barrel Length manually before ammo populates.";
-
-        renderBarrelRequiredState(
-          makeVal,
-          modelVal,
-          normalizeCaliber(calEl.value),
-          res ? res.sourceUrl : ""
-        );
-
-        openGuidanceModal({
-          fieldId: "barrelInput",
-          title: "Barrel Length Required Before Populating Ammo",
-          reason: "No verified barrel length was returned by live lookup for '" + labelStr + "'. Enter the barrel length manually in the highlighted Barrel Length field before ammo matrices populate or Save Run unlocks.",
-          example: "4.49 in",
-          chips: ["4.49 in", "4.0 in", "3.1 in", "5.6 in"]
-        });
       }
 
       setTimeout(function() {
@@ -885,12 +899,37 @@
       if (el) el.classList.add("field-problem");
     }
 
+    function applyModalManualValue() {
+      var manualInput = document.getElementById("modalManualInput");
+      var val = manualInput ? stripTrademarks(manualInput.value) : "";
+      if (!val || !lastProblemFieldId) return;
+      var target = document.getElementById(lastProblemFieldId);
+      if (target) {
+        target.value = val;
+        clearProblem(lastProblemFieldId);
+        closeGuidanceModal();
+        handleFieldInput(
+          lastProblemFieldId === "barrelInput" ? "barrel" :
+          lastProblemFieldId === "caliberInput" ? "caliber" :
+          lastProblemFieldId === "modelInput" ? "model" :
+          lastProblemFieldId === "makeInput" ? "make" : "roundCount"
+        );
+      }
+    }
+
     function openGuidanceModal(opts) {
       lastProblemFieldId = opts.fieldId;
       highlightField(opts.fieldId);
       document.getElementById("modalTitle").textContent = opts.title;
       document.getElementById("modalReason").textContent = opts.reason;
       document.getElementById("modalExample").textContent = opts.example ? ("Helpful format example: " + opts.example) : "";
+
+      var manualInput = document.getElementById("modalManualInput");
+      if (manualInput) {
+        var currentTarget = document.getElementById(opts.fieldId);
+        manualInput.value = currentTarget ? currentTarget.value : "";
+        manualInput.placeholder = opts.example ? ("e.g., " + opts.example) : "Enter value...";
+      }
 
       var chipsWrap = document.getElementById("modalChips");
       chipsWrap.innerHTML = "";
@@ -905,12 +944,21 @@
             target.value = chipVal;
             clearProblem(opts.fieldId);
             closeGuidanceModal();
+            handleFieldInput(
+              opts.fieldId === "barrelInput" ? "barrel" :
+              opts.fieldId === "caliberInput" ? "caliber" :
+              opts.fieldId === "modelInput" ? "model" :
+              opts.fieldId === "makeInput" ? "make" : "roundCount"
+            );
           }
         };
         chipsWrap.appendChild(btn);
       });
 
       document.getElementById("guidanceModal").classList.add("open");
+      if (manualInput) {
+        setTimeout(function() { manualInput.focus(); }, 60);
+      }
     }
 
     function closeGuidanceModal() {
