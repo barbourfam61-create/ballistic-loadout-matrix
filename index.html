@@ -274,7 +274,7 @@
 <body>
   <div class="container">
     <div class="banner">
-      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.5)</span></h1>
+      <h1>Ballistic Loadout &amp; Platform Matrix <span style="font-size:0.75rem;color:#7dd3fc;">(Build v7.6)</span></h1>
       <p><strong>Purpose:</strong> Evaluates handgun and rifle platforms for self-defense hollow-point loads (FBI protocol 10% organic ordnance gel behind 4-layer heavy denim) and matched target/training loads.</p>
       <p><strong>3-Tier Lookup:</strong> Checks your saved runs for that Make &amp; Model first, then queries live Wikipedia infobox / Wikidata / web sources, then prompts for manual barrel entry with zero unrelated chips. <strong>Barrel Length is required before ammo matrices populate or Save Run unlocks.</strong></p>
     </div>
@@ -879,6 +879,7 @@
       var make = stripTrademarks(makeRaw);
       var model = stripTrademarks(modelRaw);
       if (!make && !model) return null;
+      window.__lastCandidateModels = [];
 
       if (onProgress) onProgress(18, "Checking saved runs...");
       var savedHit = lookupSavedRunBarrel(make, model);
@@ -910,7 +911,8 @@
         if (sRes.ok) {
           var sData = await sRes.json();
           var hits = (sData.query && sData.query.search) ? sData.query.search : [];
-          var candidateModels = [];
+          if (!Array.isArray(window.__lastCandidateModels)) window.__lastCandidateModels = [];
+          var candidateModels = window.__lastCandidateModels;
           var normSearchLower = searchModel.toLowerCase();
           for (var h = 0; h < hits.length; h++) {
             var hTitle = stripTrademarks(hits[h].title || "");
@@ -970,6 +972,15 @@
           if (wdRes.ok) {
             var wdData = await wdRes.json();
             var wdHits = Array.isArray(wdData.search) ? wdData.search : [];
+            for (var wh = 0; wh < wdHits.length; wh++) {
+              var wLabel = stripTrademarks(wdHits[wh].label || "");
+              if (wLabel) {
+                var cleanWdModel = wLabel.replace(new RegExp("^" + make.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+", "i"), "").trim();
+                if (cleanWdModel && cleanWdModel.toLowerCase().indexOf(searchModel.toLowerCase()) !== -1 && window.__lastCandidateModels.indexOf(cleanWdModel) === -1) {
+                  window.__lastCandidateModels.push(cleanWdModel);
+                }
+              }
+            }
             for (var w = 0; w < wdHits.length; w++) {
               var qid = wdHits[w].id;
               var entUrl = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" +
@@ -1103,11 +1114,18 @@
 
       var existingManualBarrel = stripTrademarks(brlEl.value);
 
-      if (res && Array.isArray(res.candidateModels) && res.candidateModels.length > 1 && !existingManualBarrel) {
+      var cands = (res && Array.isArray(res.candidateModels)) ? res.candidateModels : [];
+      var exactAlreadyChosen = false;
+      for (var cm = 0; cm < cands.length; cm++) {
+        if (cands[cm].toLowerCase() === modelVal.toLowerCase() && cands.length === 1) {
+          exactAlreadyChosen = true;
+        }
+      }
+      if (cands.length > 1 && !exactAlreadyChosen && !existingManualBarrel) {
         setTimeout(function() { setGoProgress(0, "Go / Lookup", false); }, 400);
         openModelDisambigModal(
-          "Multiple matching model entries appeared in search results for '" + labelStr + "'. Choose the exact model or variant below to resolve its barrel length:",
-          res.candidateModels.slice(0, 5)
+          "Multiple matching model entries appeared in search results for '" + labelStr + "'. Select the exact model/variant below before resolving barrel length:",
+          cands.slice(0, 6)
         );
         return;
       }
